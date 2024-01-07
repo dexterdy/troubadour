@@ -1,0 +1,9 @@
+example.log
+.vscode
+__pycache__
+py_venv
+
+# Added by cargo
+get_table_top_sounds
+
+/target
