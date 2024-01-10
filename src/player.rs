@@ -14,7 +14,7 @@ use std::{
 };
 
 #[derive(Serialize, Deserialize)]
-pub struct SerialisablePlayer {
+pub struct Serialisable {
     media: PathBuf,
     name: String,
     volume: u32,
@@ -26,8 +26,8 @@ pub struct SerialisablePlayer {
 }
 
 pub struct Player {
-    _stream: OutputStream,
-    _handle: OutputStreamHandle,
+    stream: OutputStream,
+    handle: OutputStreamHandle,
     sink: Sink,
     media: PathBuf,
     last_time_poll: Option<Instant>,
@@ -80,9 +80,9 @@ macro_rules! as_builder {
 
 impl Player {
     pub fn new(media: PathBuf, name: String) -> Result<Self, Error> {
-        let (_stream, _handle) = OutputStream::try_default()?;
-        let sink = Sink::try_new(&_handle)?;
-        Ok(Player {
+        let (stream, handle) = OutputStream::try_default()?;
+        let sink = Sink::try_new(&handle)?;
+        Ok(Self {
             name,
             media,
             playing: false,
@@ -93,16 +93,16 @@ impl Player {
             delay_length: Duration::from_secs(0),
             take_length: None,
             skip_length: Duration::from_secs(0),
-            _stream,
-            _handle,
+            stream,
+            handle,
             sink,
             last_time_poll: None,
             time_at_last_poll: Duration::from_secs(0),
         })
     }
 
-    pub fn to_serializable(&self) -> SerialisablePlayer {
-        SerialisablePlayer {
+    pub fn to_serializable(&self) -> Serialisable {
+        Serialisable {
             name: self.name.clone(),
             media: self.media.clone(),
             volume: self.volume,
@@ -114,10 +114,10 @@ impl Player {
         }
     }
 
-    pub fn from_serializable(player: &SerialisablePlayer) -> Result<Player, Error> {
-        let (_stream, _handle) = OutputStream::try_default()?;
-        let sink = Sink::try_new(&_handle)?;
-        Ok(Player {
+    pub fn from_serializable(player: &Serialisable) -> Result<Self, Error> {
+        let (stream, handle) = OutputStream::try_default()?;
+        let sink = Sink::try_new(&handle)?;
+        Ok(Self {
             name: player.name.clone(),
             media: player.media.clone(),
             playing: false,
@@ -128,8 +128,8 @@ impl Player {
             delay_length: player.delay_length,
             take_length: player.take_length,
             skip_length: player.skip_length,
-            _stream,
-            _handle,
+            stream,
+            handle,
             sink,
             last_time_poll: None,
             time_at_last_poll: Duration::from_secs(0),
@@ -138,23 +138,23 @@ impl Player {
 
     as_builder! {
         pub fn set_delay(&mut self, delay: Duration) {
-            self.delay_length = delay
+            self.delay_length = delay;
         }
 
         pub fn skip_duration(&mut self, skip: Duration) {
-            self.skip_length = skip
+            self.skip_length = skip;
         }
 
         pub fn take_duration(&mut self, take: Option<Duration>) {
-            self.take_length = take
+            self.take_length = take;
         }
 
         pub fn toggle_loop(&mut self, looping: bool) {
-            self.looping = looping
+            self.looping = looping;
         }
 
         pub fn loop_length(&mut self, length: Option<Duration>){
-            self.loop_length = length
+            self.loop_length = length;
         }
     }
 
@@ -221,7 +221,7 @@ impl Player {
     //TODO: an implementation of get_play_time() which relies on the play data, instead of the time crate
     pub fn get_play_time(&self) -> Duration {
         if self.get_is_playing() && self.last_time_poll.is_some() {
-            self.time_at_last_poll + (Instant::now() - self.last_time_poll.unwrap())
+            self.time_at_last_poll + self.last_time_poll.unwrap().elapsed()
         } else if !self.get_is_playing() && self.get_is_paused() {
             self.time_at_last_poll
         } else {
@@ -240,12 +240,11 @@ impl Player {
     pub fn play(&mut self) -> Result<(), Error> {
         if self.get_is_paused() {
             self.sink.play();
-            self.last_time_poll = Some(Instant::now());
         } else {
-            self.last_time_poll = Some(Instant::now());
             self.time_at_last_poll = Duration::from_secs(0);
             self.apply_settings_in_place(true)?;
         }
+        self.last_time_poll = Some(Instant::now());
         self.playing = true;
         self.paused = false;
         Ok(())
@@ -273,15 +272,15 @@ impl Player {
         self.volume = volume;
         let real_volume = f32::powf(
             2.0,
-            (f32::sqrt(f32::sqrt(f32::sqrt(volume as f32 / 100.0))) * 192.0 - 192.0) / 6.0,
+            f32::sqrt(f32::sqrt(f32::sqrt(volume as f32 / 100.0))).mul_add(192.0, -192.0) / 6.0,
         );
-        self.sink.set_volume(real_volume)
+        self.sink.set_volume(real_volume);
     }
 }
 
 fn duration_to_string(dur: Duration, no_smaller_than_secs: bool) -> String {
     let nanos = if no_smaller_than_secs {
-        dur.as_secs() * 1000000000
+        dur.as_secs() * 1_000_000_000
     } else {
         dur.as_nanos() as u64
     };
