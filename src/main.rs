@@ -1,10 +1,11 @@
 use anyhow::Error;
 use clap::Parser;
 use const_format::formatcp;
-use player::{Player, SerialisablePlayer};
+use player::{Player, Serialisable};
 use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::Write;
+use std::ptr;
 use std::{path::PathBuf, time::Duration};
 
 //TODO: propper error messages
@@ -13,40 +14,38 @@ use std::{path::PathBuf, time::Duration};
 //FAR FUTURE: make a nice GUI
 //VERY FAR FUTURE: add a special mapping feature (dungeon vtt-esque)
 
-const ADD_USAGE: &'static str = "add -p <PATH> -n <NAME>";
-const REMOVE_USAGE: &'static str = "remove [IDs]";
-const SHOW_USAGE: &'static str = "show [IDs]";
-const PLAY_USAGE: &'static str = "play [IDs]";
-const STOP_USAGE: &'static str = "stop [IDs]";
-const PAUSE_USAGE: &'static str = "pause [IDs]";
-const VOLUME_USAGE: &'static str = "volume [IDs] -v <VOLUME>";
-const LOOP_USAGE: &'static str = "loop [IDs] [-d <DURATION>]";
-const UNLOOP_USAGE: &'static str = "unloop [IDs]";
-const SET_START_USAGE: &'static str = "set-start [IDs] -p <POS>";
-const SET_END_USAGE: &'static str = "set-end [IDs] [-p <POS>]";
-const DELAY_USAGE: &'static str = "delay [IDs] -d <DURATION>";
+const ADD_USAGE: &str = "add -p <PATH> -n <NAME>";
+const REMOVE_USAGE: &str = "remove [IDs]";
+const SHOW_USAGE: &str = "show [IDs]";
+const PLAY_USAGE: &str = "play [IDs]";
+const STOP_USAGE: &str = "stop [IDs]";
+const PAUSE_USAGE: &str = "pause [IDs]";
+const VOLUME_USAGE: &str = "volume [IDs] -v <VOLUME>";
+const LOOP_USAGE: &str = "loop [IDs] [-d <DURATION>]";
+const UNLOOP_USAGE: &str = "unloop [IDs]";
+const SET_START_USAGE: &str = "set-start [IDs] -p <POS>";
+const SET_END_USAGE: &str = "set-end [IDs] [-p <POS>]";
+const DELAY_USAGE: &str = "delay [IDs] -d <DURATION>";
 
-const NO_ID_ADDENDUM: &'static str =
-    "When called without ID, this will select the last added sound.";
+const NO_ID_ADDENDUM: &str = "When called without ID, this will select the last added sound.";
 
-const ABOUT_ADD: &'static str = "Will add a sound to the soundscape.";
-const ABOUT_ADD_LONG: &'static str = "Will add a sound to the soundscape. Added sounds will not start playing until you call play [ID].";
-const ABOUT_REMOVE: &'static str = "Will remove a sound from the soundscape.";
-const ABOUT_VOLUME: &'static str = "Set volume as a percentage. Can be higher than 100%";
-const ABOUT_SHOW: &'static str = "Will show the status of a sound.";
-const ABOUT_LOOP: &'static str = "Will loop at the end of the sound or the DURATION, if supplied.";
-const ABOUT_LOOP_LONG: &'static str = "Will loop at the end of the sound or the DURATION, if supplied. DURATION can be longer than the sound length.";
-const ABOUT_UNLOOP: &'static str = "Turns of looping for this sound.";
-const ABOUT_SET_START: &'static str =
-    "Clips the start of a sound by selecting the starting position.";
-const ABOUT_SET_END: &'static str =
+const ABOUT_ADD: &str = "Will add a sound to the soundscape.";
+const ABOUT_ADD_LONG: &str = "Will add a sound to the soundscape. Added sounds will not start playing until you call play [ID].";
+const ABOUT_REMOVE: &str = "Will remove a sound from the soundscape.";
+const ABOUT_VOLUME: &str = "Set volume as a percentage. Can be higher than 100%";
+const ABOUT_SHOW: &str = "Will show the status of a sound.";
+const ABOUT_LOOP: &str = "Will loop at the end of the sound or the DURATION, if supplied.";
+const ABOUT_LOOP_LONG: &str = "Will loop at the end of the sound or the DURATION, if supplied. DURATION can be longer than the sound length.";
+const ABOUT_UNLOOP: &str = "Turns of looping for this sound.";
+const ABOUT_SET_START: &str = "Clips the start of a sound by selecting the starting position.";
+const ABOUT_SET_END: &str =
     "Clips the end of a sound by selecting the ending position. Reset by omitting POS.";
-const ABOUT_DELAY: &'static str =
+const ABOUT_DELAY: &str =
     "Delays playing the sound after the play command. Useful in combination with  play-all.";
-const ABOUT_HELP: &'static str = "Shows this help message.";
-const ABOUT_EXIT: &'static str = "Exits the program.";
+const ABOUT_HELP: &str = "Shows this help message.";
+const ABOUT_EXIT: &str = "Exits the program.";
 
-const HELP_MESSAGE: &'static str = formatcp!(
+const HELP_MESSAGE: &str = formatcp!(
     "\
 {{name}}: {{about}}
 
@@ -73,7 +72,7 @@ Note that:
 "
 );
 
-const COMMAND_HELP: &'static str = "\
+const COMMAND_HELP: &str = "\
 usage: {usage}
 
 {about}\
@@ -185,16 +184,16 @@ enum IdOrName {
 
 fn parse_id(id: &str) -> Result<IdOrName, Error> {
     let int_result = id.parse::<usize>();
-    match int_result {
-        Ok(res) => Ok(IdOrName::Id(res)),
-        Err(_) => {
+    int_result.map_or_else(
+        |_| {
             if &id.to_lowercase() == "all" {
                 Ok(IdOrName::All)
             } else {
                 Ok(IdOrName::Name(id.to_string()))
             }
-        }
-    }
+        },
+        |res| Ok(IdOrName::Id(res)),
+    )
 }
 
 fn parse_duration(dur: &str) -> Result<Duration, Error> {
@@ -266,9 +265,9 @@ fn respond(
     line: &str,
     has_been_saved: bool,
 ) -> Result<RespondResult, Error> {
-    let args = shlex::split(line).ok_or(Error::msg(
-        "error: cannot parse input. Perhaps you have erronous quotation(\"\")?",
-    ))?;
+    let args = shlex::split(line).ok_or_else(|| {
+        Error::msg("error: cannot parse input. Perhaps you have erronous quotation(\"\")?")
+    })?;
     let matches = Commands::try_parse_from(args)?;
     let mut mutated = false;
     let mut saved = false;
@@ -284,7 +283,7 @@ fn respond(
                     "error: you cannot use the name '{name}', because it is a number."
                 )));
             }
-            if players.into_iter().filter(|p| p.name == name).count() > 0 {
+            if players.iter_mut().filter(|p| p.name == name).count() > 0 {
                 return Err(Error::msg(format!(
                     "error: you cannot use the name '{name}', because it is already used."
                 )));
@@ -375,7 +374,7 @@ fn respond(
                 apply_settings_in_place(false)?
             );
             show_selection!(player);
-            mutated = true
+            mutated = true;
         }
         Commands::SetEnd { ids, pos: duration } => {
             let mut player = select_players_mut(players, ids)?;
@@ -385,7 +384,7 @@ fn respond(
                 apply_settings_in_place(false)?
             );
             show_selection!(player);
-            mutated = true
+            mutated = true;
         }
         Commands::Delay { ids, duration } => {
             let mut player = select_players_mut(players, ids)?;
@@ -395,26 +394,26 @@ fn respond(
                 apply_settings_in_place(false)?
             );
             show_selection!(player);
-            mutated = true
+            mutated = true;
         }
         Commands::Save { path } => {
-            let serialisable: Vec<SerialisablePlayer> =
-                players.into_iter().map(|p| p.to_serializable()).collect();
+            let serialisable: Vec<Serialisable> =
+                players.iter_mut().map(|p| p.to_serializable()).collect();
             let json = serde_json::to_string(&serialisable)?;
             fs::write(path, json)?;
             saved = true;
         }
         Commands::Load { path } => {
-            let add_to_soundscape = players.len() == 0
+            let add_to_soundscape = players.is_empty()
                 || get_confirmation("Do you want to add this to you current soundscape?")?;
             let perform_action = add_to_soundscape
                 || has_been_saved
                 || get_confirmation("Are you sure you want to exit without saving?")?;
             if perform_action {
-                let json: Vec<SerialisablePlayer> = serde_json::from_reader(File::open(path)?)?;
+                let json: Vec<Serialisable> = serde_json::from_reader(File::open(path)?)?;
                 let new_players = json
                     .into_iter()
-                    .map(|p| Ok(Player::from_serializable(&p)?))
+                    .map(|p| Player::from_serializable(&p))
                     .collect::<Result<Vec<Player>, Error>>()?;
                 if !add_to_soundscape {
                     players.clear();
@@ -443,7 +442,7 @@ fn respond(
 }
 
 fn select_players(players: &[Player], ids: Vec<IdOrName>) -> Result<Vec<&Player>, Error> {
-    if players.len() == 0 {
+    if players.is_empty() {
         return Err(Error::msg(
             "error: there are addcurrently no players to select",
         ));
@@ -451,11 +450,10 @@ fn select_players(players: &[Player], ids: Vec<IdOrName>) -> Result<Vec<&Player>
     if ids.contains(&IdOrName::All) {
         if ids[0] == IdOrName::All && ids.len() == 1 {
             return Ok(players.iter().collect());
-        } else {
-            return Err(Error::msg("'all' has to be the only id."));
         }
+        return Err(Error::msg("'all' has to be the only id."));
     }
-    if ids.len() == 0 {
+    if ids.is_empty() {
         return Ok(vec![players.last().unwrap()]);
     }
 
@@ -463,15 +461,11 @@ fn select_players(players: &[Player], ids: Vec<IdOrName>) -> Result<Vec<&Player>
         .into_iter()
         .map(|id| match id {
             IdOrName::Id(num) => Ok(num),
-            IdOrName::Name(name) => {
-                players
-                    .into_iter()
-                    .position(|p| p.name == name)
-                    .ok_or(Error::msg(format!(
-                        "error: no player found with the name {name}"
-                    )))
-            }
-            _ => panic!("unreachable"),
+            IdOrName::Name(name) => players
+                .iter()
+                .position(|p| p.name == name)
+                .ok_or_else(|| Error::msg(format!("error: no player found with the name {name}"))),
+            IdOrName::All => unreachable!(),
         })
         .collect::<Result<HashSet<usize>, Error>>()?;
 
@@ -482,7 +476,7 @@ fn select_players_mut(
     players: &mut [Player],
     ids: Vec<IdOrName>,
 ) -> Result<Vec<&mut Player>, Error> {
-    if players.len() == 0 {
+    if players.is_empty() {
         return Err(Error::msg(
             "error: there are currently no players to select",
         ));
@@ -490,11 +484,10 @@ fn select_players_mut(
     if ids.contains(&IdOrName::All) {
         if ids[0] == IdOrName::All && ids.len() == 1 {
             return Ok(players.iter_mut().collect());
-        } else {
-            return Err(Error::msg("'all' has to be the only id."));
         }
+        return Err(Error::msg("'all' has to be the only id."));
     }
-    if ids.len() == 0 {
+    if ids.is_empty() {
         return Ok(vec![players.last_mut().unwrap()]);
     }
 
@@ -502,15 +495,11 @@ fn select_players_mut(
         .into_iter()
         .map(|id| match id {
             IdOrName::Id(num) => Ok(num),
-            IdOrName::Name(name) => {
-                players
-                    .into_iter()
-                    .position(|p| p.name == name)
-                    .ok_or(Error::msg(format!(
-                        "error: no player found with the name {name}"
-                    )))
-            }
-            _ => panic!("unreachable"),
+            IdOrName::Name(name) => players
+                .iter_mut()
+                .position(|p| p.name == name)
+                .ok_or_else(|| Error::msg(format!("error: no player found with the name {name}"))),
+            IdOrName::All => unreachable!(),
         })
         .collect::<Result<HashSet<usize>, Error>>()?;
 
@@ -519,12 +508,12 @@ fn select_players_mut(
     // as long as I only borrow that ones corresponding to the ids
     Ok(ids_set
         .into_iter()
-        .map(|id| unsafe { &mut *(&mut players[id] as *mut Player) })
+        .map(|id| unsafe { &mut *ptr::addr_of_mut!(players[id]) })
         .collect())
 }
 
 fn readline(prompt: &str) -> Result<String, String> {
-    write!(std::io::stdout(), "{}", prompt).map_err(|e| e.to_string())?;
+    write!(std::io::stdout(), "{prompt}").map_err(|e| e.to_string())?;
     std::io::stdout().flush().map_err(|e| e.to_string())?;
     let mut buffer = String::new();
     std::io::stdin()
@@ -534,8 +523,8 @@ fn readline(prompt: &str) -> Result<String, String> {
 }
 
 fn get_confirmation(prompt: &str) -> Result<bool, Error> {
-    Ok(readline(format!("{} Y/N: ", prompt).as_str())
-        .map_err(|str| Error::msg(str))?
+    Ok(readline(format!("{prompt} Y/N: ").as_str())
+        .map_err(Error::msg)?
         .trim()
         .to_lowercase()
         == "y")
