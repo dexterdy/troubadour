@@ -240,12 +240,11 @@ impl Player {
     pub fn play(&mut self) -> Result<(), Error> {
         if self.get_is_paused() {
             self.sink.play();
-            self.last_time_poll = Some(Instant::now());
         } else {
-            self.last_time_poll = Some(Instant::now());
             self.time_at_last_poll = Duration::from_secs(0);
             self.apply_settings_in_place(true)?;
         }
+        self.last_time_poll = Some(Instant::now());
         self.playing = true;
         self.paused = false;
         Ok(())
