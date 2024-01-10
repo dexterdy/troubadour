@@ -272,7 +272,7 @@ impl Player {
         self.volume = volume;
         let real_volume = f32::powf(
             2.0,
-            f32::sqrt(f32::sqrt(f32::sqrt(volume as f32 / 100.0))).mul_add(192.0, -192.0),
+            f32::sqrt(f32::sqrt(f32::sqrt(volume as f32 / 100.0))).mul_add(192.0, -192.0) / 6.0,
         );
         self.sink.set_volume(real_volume);
     }
