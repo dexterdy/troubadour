@@ -98,13 +98,15 @@ fn convert_file_error(path: &Path, err: &io::Error) -> Error {
         std::io::ErrorKind::PermissionDenied => {
             Error::msg(format!("Permission to access {path_dis} was denied."))
         }
-        _ => Error::msg(format!("File error: {path_dis}.")),
+        _ => Error::msg(format!("File error: {path_dis}. {err}")),
     }
 }
 
 fn file_user_fallback(mut path: PathBuf, name: &String) -> Result<(File, PathBuf), Error> {
     let mut file = File::open(&path).map_err(|err| convert_file_error(&path, &err));
     while file.is_err() {
+        //FIXME: this doesn't work. need a proper pathbuf parser
+        //FIXME: when pathbuf parse error, fix types such that we can go to next iteration
         println!("{}", file.err().unwrap());
         let new_path = readline(&format!(
             "Type in new path for {name} (leave empty to skip): "

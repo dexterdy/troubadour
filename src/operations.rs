@@ -346,8 +346,8 @@ pub fn load(
         let json: Vec<Serialisable> = serde_json::from_reader(File::open(path)?)?;
         let new_players = json
             .into_iter()
-            .map(|p| Player::from_serializable(&p))
-            .collect::<Result<Vec<Player>, Error>>()?;
+            .filter_map(|p| Player::from_serializable(&p).ok())
+            .collect::<Vec<Player>>();
         if !add_to_soundscape {
             players.clear();
         }

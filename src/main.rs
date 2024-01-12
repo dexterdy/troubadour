@@ -238,7 +238,7 @@ fn respond(
     has_been_saved: bool,
 ) -> Result<RespondResult, Error> {
     let args = shlex::split(line).ok_or_else(|| {
-        Error::msg("error: cannot parse input. Perhaps you have erronous quotation(\"\")?")
+        Error::msg("Cannot parse input. Perhaps you have erronous quotation(\"\")?")
     })?;
     let matches = Commands::try_parse_from(args)?;
     match matches {

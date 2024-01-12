@@ -1,0 +1,34 @@
+[
+  {
+    "media": "C:\\Users\\dexte\\Music\\ambience\\ancient_greece\\ArchersShot x2 no fuck you.ogg",
+    "name": "archer",
+    "volume": 100,
+    "looping": false,
+    "loop_length": null,
+    "delay_length": {
+      "secs": 0,
+      "nanos": 0
+    },
+    "take_length": null,
+    "skip_length": {
+      "secs": 0,
+      "nanos": 0
+    }
+  },
+  {
+    "media": "C:\\Users\\dexte\\Music\\ambience\\ancient_greece\\BattleClose.ogg",
+    "name": "battle",
+    "volume": 100,
+    "looping": false,
+    "loop_length": null,
+    "delay_length": {
+      "secs": 0,
+      "nanos": 0
+    },
+    "take_length": null,
+    "skip_length": {
+      "secs": 0,
+      "nanos": 0
+    }
+  }
+]
