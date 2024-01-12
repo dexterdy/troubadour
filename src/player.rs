@@ -8,10 +8,12 @@ use rodio::{source::Zero, Decoder, OutputStream, OutputStreamHandle, Sink, Sourc
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
-    io::BufReader,
-    path::PathBuf,
+    io::{self, BufReader},
+    path::{Path, PathBuf},
     time::{Duration, Instant},
 };
+
+use crate::readline;
 
 #[derive(Serialize, Deserialize)]
 pub struct Serialisable {
@@ -30,6 +32,7 @@ pub struct Player {
     handle: OutputStreamHandle,
     sink: Sink,
     media: PathBuf,
+    file_handle: File,
     last_time_poll: Option<Instant>,
     time_at_last_poll: Duration,
     pub name: String,
@@ -78,13 +81,51 @@ macro_rules! as_builder {
     };
 }
 
+fn get_device_stuff() -> Result<(OutputStream, OutputStreamHandle, Sink), Error> {
+    let (stream, handle) = OutputStream::try_default().or(Err(Error::msg(
+        "There was an error setting up your audio device.",
+    )))?;
+    let sink = Sink::try_new(&handle).or(Err(Error::msg(
+        "There was an error setting up your audio device.",
+    )))?;
+    Ok((stream, handle, sink))
+}
+
+fn convert_file_error(path: &Path, err: &io::Error) -> Error {
+    let path_dis = path.display();
+    match err.kind() {
+        std::io::ErrorKind::NotFound => Error::msg(format!("Could not find a file at {path_dis}.")),
+        std::io::ErrorKind::PermissionDenied => {
+            Error::msg(format!("Permission to access {path_dis} was denied."))
+        }
+        _ => Error::msg(format!("File error: {path_dis}.")),
+    }
+}
+
+fn file_user_fallback(mut path: PathBuf, name: &String) -> Result<(File, PathBuf), Error> {
+    let mut file = File::open(&path).map_err(|err| convert_file_error(&path, &err));
+    while file.is_err() {
+        println!("{}", file.err().unwrap());
+        let new_path = readline(&format!(
+            "Type in new path for {name} (leave empty to skip): "
+        ))?;
+        if new_path.is_empty() {
+            return Err(Error::msg(format!("Skipping {name}")));
+        }
+        path = Path::new(&new_path).to_path_buf();
+        file = File::open(&path).map_err(|err| convert_file_error(&path, &err));
+    }
+    file.map(|f| (f, path))
+}
+
 impl Player {
     pub fn new(media: PathBuf, name: String) -> Result<Self, Error> {
-        let (stream, handle) = OutputStream::try_default()?;
-        let sink = Sink::try_new(&handle)?;
+        let (stream, handle, sink) = get_device_stuff()?;
+        let (file, media) = file_user_fallback(media, &name)?;
         Ok(Self {
             name,
             media,
+            file_handle: file,
             playing: false,
             paused: false,
             volume: 100,
@@ -115,11 +156,12 @@ impl Player {
     }
 
     pub fn from_serializable(player: &Serialisable) -> Result<Self, Error> {
-        let (stream, handle) = OutputStream::try_default()?;
-        let sink = Sink::try_new(&handle)?;
+        let (stream, handle, sink) = get_device_stuff()?;
+        let (file, media) = file_user_fallback(player.media.clone(), &player.name)?;
         Ok(Self {
             name: player.name.clone(),
-            media: player.media.clone(),
+            media,
+            file_handle: file,
             playing: false,
             paused: false,
             volume: player.volume,
@@ -165,8 +207,16 @@ impl Player {
     ) -> Result<(), Error> {
         // possible edge case: prev buffer reads from file at same time as this operation, causing a race condition?
         let is_empty = self.sink.empty();
-        let media = BufReader::new(File::open(self.media.clone())?);
-        let decoder = Decoder::new(media)?;
+        let media = BufReader::new(
+            self.file_handle
+                .try_clone()
+                .map_err(|err| convert_file_error(&self.media, &err))?,
+        );
+        let decoder = Decoder::new(media).map_err(|_| {
+            Error::msg(
+                "Cannot play file. The format might not be supported, or the data is corrupt.",
+            )
+        })?;
 
         optional!(
             self.take_length.is_some() && self.take_length.unwrap() > Duration::from_secs(0) && (
@@ -268,6 +318,7 @@ impl Player {
         self.sink.clear();
     }
 
+    #[allow(clippy::cast_precision_loss)]
     pub fn volume(&mut self, volume: u32) {
         self.volume = volume;
         let real_volume = f32::powf(
@@ -278,6 +329,7 @@ impl Player {
     }
 }
 
+#[allow(clippy::cast_possible_truncation)]
 fn duration_to_string(dur: Duration, no_smaller_than_secs: bool) -> String {
     let nanos = if no_smaller_than_secs {
         dur.as_secs() * 1_000_000_000

@@ -1,11 +1,11 @@
+use anyhow::Error;
+use std::collections::HashSet;
 use std::fs::File;
-use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
-use std::{collections::HashSet, path::PathBuf};
 use std::{fs, ptr};
 
-use anyhow::Error;
-
+use crate::get_confirmation;
 use crate::player::Serialisable;
 use crate::{player::Player, IdOrName};
 
@@ -110,24 +110,6 @@ fn select_players_mut(
         .collect())
 }
 
-pub fn readline(prompt: &str) -> Result<String, String> {
-    write!(std::io::stdout(), "{prompt}").map_err(|e| e.to_string())?;
-    std::io::stdout().flush().map_err(|e| e.to_string())?;
-    let mut buffer = String::new();
-    std::io::stdin()
-        .read_line(&mut buffer)
-        .map_err(|e| e.to_string())?;
-    Ok(buffer)
-}
-
-fn get_confirmation(prompt: &str) -> Result<bool, Error> {
-    Ok(readline(format!("{prompt} Y/N: ").as_str())
-        .map_err(Error::msg)?
-        .trim()
-        .to_lowercase()
-        == "y")
-}
-
 pub fn add(players: &mut Vec<Player>, path: PathBuf, name: String) -> Result<RespondResult, Error> {
     if &name.to_lowercase() == "all" {
         return Err(Error::msg(
@@ -191,7 +173,7 @@ pub fn remove(players: &mut Vec<Player>, ids: Vec<IdOrName>) -> Result<RespondRe
     }
 }
 
-pub fn play(players: &mut Vec<Player>, ids: Vec<IdOrName>) -> Result<RespondResult, Error> {
+pub fn play(players: &mut [Player], ids: Vec<IdOrName>) -> Result<RespondResult, Error> {
     let mut player = select_players_mut(players, ids)?;
     apply_vec!(&mut player, play()?);
     show_selection!(player);
@@ -202,7 +184,7 @@ pub fn play(players: &mut Vec<Player>, ids: Vec<IdOrName>) -> Result<RespondResu
     })
 }
 
-pub fn stop(players: &mut Vec<Player>, ids: Vec<IdOrName>) -> Result<RespondResult, Error> {
+pub fn stop(players: &mut [Player], ids: Vec<IdOrName>) -> Result<RespondResult, Error> {
     let mut player = select_players_mut(players, ids)?;
     apply_vec!(&mut player, stop());
     show_selection!(player);
@@ -213,7 +195,7 @@ pub fn stop(players: &mut Vec<Player>, ids: Vec<IdOrName>) -> Result<RespondResu
     })
 }
 
-pub fn pause(players: &mut Vec<Player>, ids: Vec<IdOrName>) -> Result<RespondResult, Error> {
+pub fn pause(players: &mut [Player], ids: Vec<IdOrName>) -> Result<RespondResult, Error> {
     let mut player = select_players_mut(players, ids)?;
     apply_vec!(&mut player, pause());
     show_selection!(player);
@@ -225,7 +207,7 @@ pub fn pause(players: &mut Vec<Player>, ids: Vec<IdOrName>) -> Result<RespondRes
 }
 
 pub fn set_volume(
-    players: &mut Vec<Player>,
+    players: &mut [Player],
     ids: Vec<IdOrName>,
     volume: u32,
 ) -> Result<RespondResult, Error> {
@@ -239,7 +221,7 @@ pub fn set_volume(
     })
 }
 
-pub fn show(players: &mut Vec<Player>, ids: Vec<IdOrName>) -> Result<RespondResult, Error> {
+pub fn show(players: &[Player], ids: Vec<IdOrName>) -> Result<RespondResult, Error> {
     let player = select_players(players, ids)?;
     show_selection!(player);
     Ok(RespondResult {
@@ -250,7 +232,7 @@ pub fn show(players: &mut Vec<Player>, ids: Vec<IdOrName>) -> Result<RespondResu
 }
 
 pub fn toggle_loop(
-    players: &mut Vec<Player>,
+    players: &mut [Player],
     ids: Vec<IdOrName>,
     duration: Option<Duration>,
 ) -> Result<RespondResult, Error> {
@@ -268,7 +250,7 @@ pub fn toggle_loop(
         quit: false,
     })
 }
-pub fn unloop(players: &mut Vec<Player>, ids: Vec<IdOrName>) -> Result<RespondResult, Error> {
+pub fn unloop(players: &mut [Player], ids: Vec<IdOrName>) -> Result<RespondResult, Error> {
     let mut player = select_players_mut(players, ids)?;
     apply_vec!(
         &mut player,
@@ -284,7 +266,7 @@ pub fn unloop(players: &mut Vec<Player>, ids: Vec<IdOrName>) -> Result<RespondRe
 }
 
 pub fn set_start(
-    players: &mut Vec<Player>,
+    players: &mut [Player],
     ids: Vec<IdOrName>,
     duration: Duration,
 ) -> Result<RespondResult, Error> {
@@ -303,7 +285,7 @@ pub fn set_start(
 }
 
 pub fn set_end(
-    players: &mut Vec<Player>,
+    players: &mut [Player],
     ids: Vec<IdOrName>,
     duration: Option<Duration>,
 ) -> Result<RespondResult, Error> {
@@ -322,7 +304,7 @@ pub fn set_end(
 }
 
 pub fn delay(
-    players: &mut Vec<Player>,
+    players: &mut [Player],
     ids: Vec<IdOrName>,
     duration: Duration,
 ) -> Result<RespondResult, Error> {
@@ -340,7 +322,7 @@ pub fn delay(
     })
 }
 
-pub fn save(players: &mut Vec<Player>, path: PathBuf) -> Result<RespondResult, Error> {
+pub fn save(players: &mut [Player], path: &Path) -> Result<RespondResult, Error> {
     let serialisable: Vec<Serialisable> = players.iter_mut().map(|p| p.to_serializable()).collect();
     let json = serde_json::to_string(&serialisable)?;
     fs::write(path, json)?;
@@ -352,7 +334,7 @@ pub fn save(players: &mut Vec<Player>, path: PathBuf) -> Result<RespondResult, E
 }
 pub fn load(
     players: &mut Vec<Player>,
-    path: PathBuf,
+    path: &Path,
     has_been_saved: bool,
 ) -> Result<RespondResult, Error> {
     let add_to_soundscape = players.is_empty()
