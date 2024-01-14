@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use anyhow::Error;
+use clap::Parser;
 use duration_human::DurationHuman;
 use fomat_macros::fomat;
 use paste::item;
@@ -8,10 +9,12 @@ use rodio::{source::Zero, Decoder, OutputStream, OutputStreamHandle, Sink, Sourc
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
-    io::BufReader,
-    path::PathBuf,
+    io::{self, BufReader},
+    path::{Path, PathBuf},
     time::{Duration, Instant},
 };
+
+use crate::readline;
 
 #[derive(Serialize, Deserialize)]
 pub struct Serialisable {
@@ -30,6 +33,7 @@ pub struct Player {
     handle: OutputStreamHandle,
     sink: Sink,
     media: PathBuf,
+    file_handle: File,
     last_time_poll: Option<Instant>,
     time_at_last_poll: Duration,
     pub name: String,
@@ -78,13 +82,78 @@ macro_rules! as_builder {
     };
 }
 
+fn get_device_stuff() -> Result<(OutputStream, OutputStreamHandle, Sink), Error> {
+    let (stream, handle) = OutputStream::try_default().or(Err(Error::msg(
+        "error: failed to set up up your audio device.",
+    )))?;
+    let sink = Sink::try_new(&handle).or(Err(Error::msg(
+        "error: failed to set up up your audio device.",
+    )))?;
+    Ok((stream, handle, sink))
+}
+
+fn convert_file_error(path: &Path, err: &io::Error) -> Error {
+    let path_dis = path.display();
+    match err.kind() {
+        std::io::ErrorKind::NotFound => {
+            Error::msg(format!("error: could not find a file at {path_dis}."))
+        }
+        std::io::ErrorKind::PermissionDenied => Error::msg(format!(
+            "error: permission to access {path_dis} was denied."
+        )),
+        _ => Error::msg(format!(
+            "error: something went wrong trying to open {path_dis}. {err}"
+        )),
+    }
+}
+
+#[derive(Debug, Parser)]
+#[command(no_binary_name = true, allow_missing_positional = true)]
+struct FileLocation {
+    path: Option<PathBuf>,
+}
+
+fn file_user_fallback(mut path: PathBuf, name: &String) -> Result<(File, PathBuf), Error> {
+    loop {
+        let file = File::open(&path).map_err(|err| convert_file_error(&path, &err));
+        if let Err(err) = file {
+            println!("{err}");
+            path = loop {
+                let new_path = readline(&format!(
+                    "Type in new path for {name} (leave empty to skip): "
+                ))
+                .and_then(|line| {
+                    shlex::split(&line).ok_or_else(|| {
+                        Error::msg(
+                            "error: cannot parse input. Perhaps you have erronous quotation(\"\")?",
+                        )
+                    })
+                })
+                .and_then(|line| {
+                    FileLocation::try_parse_from(line).map_err(|e| Error::msg(e.to_string()))
+                });
+                if let Err(err) = new_path {
+                    println!("{err}");
+                } else if matches!(new_path, Ok(FileLocation { path: None })) {
+                    return Err(Error::msg(format!("Skipping {name}")));
+                } else {
+                    break new_path.unwrap().path.unwrap();
+                }
+            };
+        } else {
+            break Ok((file.unwrap(), path));
+        }
+    }
+}
+
 impl Player {
     pub fn new(media: PathBuf, name: String) -> Result<Self, Error> {
-        let (stream, handle) = OutputStream::try_default()?;
-        let sink = Sink::try_new(&handle)?;
+        let (stream, handle, sink) = get_device_stuff()?;
+        let (file, media) = file_user_fallback(media, &name)?;
         Ok(Self {
             name,
             media,
+            file_handle: file,
             playing: false,
             paused: false,
             volume: 100,
@@ -115,11 +184,12 @@ impl Player {
     }
 
     pub fn from_serializable(player: &Serialisable) -> Result<Self, Error> {
-        let (stream, handle) = OutputStream::try_default()?;
-        let sink = Sink::try_new(&handle)?;
+        let (stream, handle, sink) = get_device_stuff()?;
+        let (file, media) = file_user_fallback(player.media.clone(), &player.name)?;
         Ok(Self {
             name: player.name.clone(),
-            media: player.media.clone(),
+            media,
+            file_handle: file,
             playing: false,
             paused: false,
             volume: player.volume,
@@ -165,8 +235,16 @@ impl Player {
     ) -> Result<(), Error> {
         // possible edge case: prev buffer reads from file at same time as this operation, causing a race condition?
         let is_empty = self.sink.empty();
-        let media = BufReader::new(File::open(self.media.clone())?);
-        let decoder = Decoder::new(media)?;
+        let media = BufReader::new(
+            self.file_handle
+                .try_clone()
+                .map_err(|err| convert_file_error(&self.media, &err))?,
+        );
+        let decoder = Decoder::new(media).map_err(|_| {
+            Error::msg(
+                "error: cannot play file. The format might not be supported, or the data is corrupt.",
+            )
+        })?;
 
         optional!(
             self.take_length.is_some() && self.take_length.unwrap() > Duration::from_secs(0) && (

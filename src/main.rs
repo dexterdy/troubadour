@@ -2,10 +2,11 @@ use anyhow::Error;
 use clap::Parser;
 use const_format::formatcp;
 use operations::{
-    add, delay, exit, load, pause, play, readline, remove, save, set_end, set_start, set_volume,
-    show, stop, toggle_loop, unloop, RespondResult,
+    add, delay, exit, load, pause, play, remove, save, set_end, set_start, set_volume, show, stop,
+    toggle_loop, unloop, RespondResult,
 };
 use player::Player;
+use std::io::Write;
 use std::{path::PathBuf, time::Duration};
 
 mod operations;
@@ -179,7 +180,7 @@ build! {
 }
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
-enum IdOrName {
+pub enum IdOrName {
     Id(usize),
     All,
     Name(String),
@@ -207,7 +208,7 @@ fn main() -> Result<(), String> {
     let mut players = Vec::new();
     let mut has_been_saved = true;
     loop {
-        let line = readline("$ ")?;
+        let line = readline("$ ").map_err(|e| e.to_string())?;
         let line = line.trim();
         if line.is_empty() {
             continue;
@@ -253,8 +254,28 @@ fn respond(
         Commands::SetStart { ids, pos: duration } => set_start(players, ids, duration),
         Commands::SetEnd { ids, pos: duration } => set_end(players, ids, duration),
         Commands::Delay { ids, duration } => delay(players, ids, duration),
-        Commands::Save { path } => save(players, path),
-        Commands::Load { path } => load(players, path, has_been_saved),
+        Commands::Save { path } => save(players, &path),
+        Commands::Load { path } => load(players, &path, has_been_saved),
         Commands::Exit => exit(has_been_saved),
     }
+}
+
+pub fn readline(prompt: &str) -> Result<String, Error> {
+    write!(std::io::stdout(), "{prompt}").map_err(|e| Error::msg(e.to_string()))?;
+    std::io::stdout()
+        .flush()
+        .map_err(|e| Error::msg(e.to_string()))?;
+    let mut buffer = String::new();
+    std::io::stdin()
+        .read_line(&mut buffer)
+        .map_err(|e| Error::msg(e.to_string()))?;
+    Ok(buffer)
+}
+
+fn get_confirmation(prompt: &str) -> Result<bool, Error> {
+    Ok(readline(format!("{prompt} Y/N: ").as_str())
+        .map_err(Error::msg)?
+        .trim()
+        .to_lowercase()
+        == "y")
 }
