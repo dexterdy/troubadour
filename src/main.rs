@@ -180,7 +180,7 @@ build! {
 }
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
-enum IdOrName {
+pub enum IdOrName {
     Id(usize),
     All,
     Name(String),

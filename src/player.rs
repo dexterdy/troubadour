@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use anyhow::Error;
+use clap::Parser;
 use duration_human::DurationHuman;
 use fomat_macros::fomat;
 use paste::item;
@@ -102,22 +103,41 @@ fn convert_file_error(path: &Path, err: &io::Error) -> Error {
     }
 }
 
+#[derive(Debug, Parser)]
+#[command(no_binary_name = true, allow_missing_positional = true)]
+struct FileLocation {
+    path: Option<PathBuf>,
+}
+
 fn file_user_fallback(mut path: PathBuf, name: &String) -> Result<(File, PathBuf), Error> {
-    let mut file = File::open(&path).map_err(|err| convert_file_error(&path, &err));
-    while file.is_err() {
-        //FIXME: this doesn't work. need a proper pathbuf parser
-        //FIXME: when pathbuf parse error, fix types such that we can go to next iteration
-        println!("{}", file.err().unwrap());
-        let new_path = readline(&format!(
-            "Type in new path for {name} (leave empty to skip): "
-        ))?;
-        if new_path.is_empty() {
-            return Err(Error::msg(format!("Skipping {name}")));
+    loop {
+        let file = File::open(&path).map_err(|err| convert_file_error(&path, &err));
+        if let Err(err) = file {
+            println!("{err}");
+            path = loop {
+                let new_path = readline(&format!(
+                    "Type in new path for {name} (leave empty to skip): "
+                ))
+                .and_then(|line| {
+                    shlex::split(&line).ok_or_else(|| {
+                        Error::msg("Cannot parse input. Perhaps you have erronous quotation(\"\")?")
+                    })
+                })
+                .and_then(|line| {
+                    FileLocation::try_parse_from(line).map_err(|e| Error::msg(e.to_string()))
+                });
+                if let Err(err) = new_path {
+                    println!("{err}");
+                } else if matches!(new_path, Ok(FileLocation { path: None })) {
+                    return Err(Error::msg(format!("Skipping {name}")));
+                } else {
+                    break new_path.unwrap().path.unwrap();
+                }
+            };
+        } else {
+            break Ok((file.unwrap(), path));
         }
-        path = Path::new(&new_path).to_path_buf();
-        file = File::open(&path).map_err(|err| convert_file_error(&path, &err));
     }
-    file.map(|f| (f, path))
 }
 
 impl Player {
@@ -320,7 +340,6 @@ impl Player {
         self.sink.clear();
     }
 
-    #[allow(clippy::cast_precision_loss)]
     pub fn volume(&mut self, volume: u32) {
         self.volume = volume;
         let real_volume = f32::powf(
@@ -331,7 +350,6 @@ impl Player {
     }
 }
 
-#[allow(clippy::cast_possible_truncation)]
 fn duration_to_string(dur: Duration, no_smaller_than_secs: bool) -> String {
     let nanos = if no_smaller_than_secs {
         dur.as_secs() * 1_000_000_000

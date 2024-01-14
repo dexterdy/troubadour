@@ -1,8 +1,0 @@
-error origins:
-
-opening/reading files ✅
-load file not the right format ✅
-    nested file errors ✅
-sound not in a supported format ✅
-audio device and stream/sink errors ✅
-duration errors? not certain if possible
