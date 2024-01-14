@@ -84,10 +84,10 @@ macro_rules! as_builder {
 
 fn get_device_stuff() -> Result<(OutputStream, OutputStreamHandle, Sink), Error> {
     let (stream, handle) = OutputStream::try_default().or(Err(Error::msg(
-        "There was an error setting up your audio device.",
+        "error: failed to set up up your audio device.",
     )))?;
     let sink = Sink::try_new(&handle).or(Err(Error::msg(
-        "There was an error setting up your audio device.",
+        "error: failed to set up up your audio device.",
     )))?;
     Ok((stream, handle, sink))
 }
@@ -95,11 +95,15 @@ fn get_device_stuff() -> Result<(OutputStream, OutputStreamHandle, Sink), Error>
 fn convert_file_error(path: &Path, err: &io::Error) -> Error {
     let path_dis = path.display();
     match err.kind() {
-        std::io::ErrorKind::NotFound => Error::msg(format!("Could not find a file at {path_dis}.")),
-        std::io::ErrorKind::PermissionDenied => {
-            Error::msg(format!("Permission to access {path_dis} was denied."))
+        std::io::ErrorKind::NotFound => {
+            Error::msg(format!("error: could not find a file at {path_dis}."))
         }
-        _ => Error::msg(format!("File error: {path_dis}. {err}")),
+        std::io::ErrorKind::PermissionDenied => Error::msg(format!(
+            "error: permission to access {path_dis} was denied."
+        )),
+        _ => Error::msg(format!(
+            "error: something went wrong trying to open {path_dis}. {err}"
+        )),
     }
 }
 
@@ -120,7 +124,9 @@ fn file_user_fallback(mut path: PathBuf, name: &String) -> Result<(File, PathBuf
                 ))
                 .and_then(|line| {
                     shlex::split(&line).ok_or_else(|| {
-                        Error::msg("Cannot parse input. Perhaps you have erronous quotation(\"\")?")
+                        Error::msg(
+                            "error: cannot parse input. Perhaps you have erronous quotation(\"\")?",
+                        )
                     })
                 })
                 .and_then(|line| {
@@ -236,7 +242,7 @@ impl Player {
         );
         let decoder = Decoder::new(media).map_err(|_| {
             Error::msg(
-                "Cannot play file. The format might not be supported, or the data is corrupt.",
+                "error: cannot play file. The format might not be supported, or the data is corrupt.",
             )
         })?;
 
