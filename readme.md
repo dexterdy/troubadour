@@ -1,7 +1,7 @@
 # DnD Player
 
 The name is a wip and I'm still looking for a good alternative.
-This project was created because I found that there was a distinct lack of soundscape creation tools that allowed me to use my own library of mp3s. Most of the existing tools are websites or apps that have their own collections of music and sounds. Some examples: [Syrinscape](https://syrinscape.com/), [Tabletop Audio](https://tabletopaudio.com/), [BattleBards](https://battlebards.com/). DThese are amazing offerings and there is good reason to use them, but if you'd rather use your own mp3's or if you want to be independant of an internet connection, this project is exactly what you need.
+This project was created because I found that there was a distinct lack of soundscape creation tools that allowed me to use my own library of mp3s. Most of the existing tools are websites or apps that have their own collections of music and sounds. Some examples: [Syrinscape](https://syrinscape.com/), [Tabletop Audio](https://tabletopaudio.com/), [BattleBards](https://battlebards.com/). These are amazing offerings and there is good reason to use them, but if you'd rather use your own mp3's or if you want to be independant of an internet connection, this project is exactly what you need.
 
 ## State
 
