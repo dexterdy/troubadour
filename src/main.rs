@@ -71,7 +71,7 @@ Usage:
 \texit\t\t\t\t{ABOUT_EXIT}
 
 Note that:
-\t- [] indicates an optional value.
+\t- [..] indicates an optional value.
 \t- Most commands will select the last added sound if ID is not supplied.
 \t- ID can be a name, 'all', or an index. For instance: 'play horn', 'play all' or 'play 0'\
 "

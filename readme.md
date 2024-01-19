@@ -52,7 +52,7 @@ Usage:
         exit                            Exits the program.
 
 Note that:
-        - [] indicates an optional value.
+        - [..] indicates an optional value.
         - Most commands will select the last added sound if ID is not supplied.
         - ID can be a name, 'all', or an index. For instance: 'play horn', 'play all' or 'play 0'
 ```
