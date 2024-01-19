@@ -206,6 +206,12 @@ fn parse_duration(dur: &str) -> Result<Duration, Error> {
 }
 
 fn main() -> Result<(), String> {
+    println!(
+        "dnd-player Copyright (C) 2024 J.P Hagedoorn AKA Dexterdy Krataigos
+        This program comes with ABSOLUTELY NO WARRANTY.
+        This is free software, and you are welcome to redistribute it
+        under the conditions of the GPL v3."
+    );
     let mut players = Vec::new();
     let mut has_been_saved = true;
     loop {
