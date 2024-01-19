@@ -12,9 +12,10 @@ use std::{path::PathBuf, time::Duration};
 mod operations;
 mod player;
 
-//TODO: propper error messages
-//TODO: reset command
-//FUTURE: implement grouping
+//TODO: Implement a sound length feature, based on amount samples
+//TODO: add simple, better cli using https://crates.io/crates/rustyline
+//TODO: add fades toggle
+//TODO: implement grouping
 //FAR FUTURE: make a nice GUI
 //VERY FAR FUTURE: add a special mapping feature (dungeon vtt-esque)
 
@@ -70,7 +71,7 @@ Usage:
 \texit\t\t\t\t{ABOUT_EXIT}
 
 Note that:
-\t- [] indicates an optional value.
+\t- [..] indicates an optional value.
 \t- Most commands will select the last added sound if ID is not supplied.
 \t- ID can be a name, 'all', or an index. For instance: 'play horn', 'play all' or 'play 0'\
 "
@@ -205,6 +206,12 @@ fn parse_duration(dur: &str) -> Result<Duration, Error> {
 }
 
 fn main() -> Result<(), String> {
+    println!(
+        "dnd-player Copyright (C) 2024 J.P Hagedoorn AKA Dexterdy Krataigos
+        This program comes with ABSOLUTELY NO WARRANTY.
+        This is free software, and you are welcome to redistribute it
+        under the conditions of the GPL v3."
+    );
     let mut players = Vec::new();
     let mut has_been_saved = true;
     loop {
