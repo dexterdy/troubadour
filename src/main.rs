@@ -12,8 +12,7 @@ use std::{path::PathBuf, time::Duration};
 mod operations;
 mod player;
 
-//TODO: propper error messages
-//TODO: reset command
+//TODO: Implement a sound length feature, based on amount samples
 //FUTURE: implement grouping
 //FAR FUTURE: make a nice GUI
 //VERY FAR FUTURE: add a special mapping feature (dungeon vtt-esque)
