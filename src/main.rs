@@ -13,7 +13,9 @@ mod operations;
 mod player;
 
 //TODO: Implement a sound length feature, based on amount samples
-//FUTURE: implement grouping
+//TODO: add simple, better cli using https://crates.io/crates/rustyline
+//TODO: add fades toggle
+//TODO: implement grouping
 //FAR FUTURE: make a nice GUI
 //VERY FAR FUTURE: add a special mapping feature (dungeon vtt-esque)
 
