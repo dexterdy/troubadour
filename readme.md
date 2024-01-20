@@ -19,7 +19,7 @@ The project currently doesn't have a GUI, only a CLI, but it does have all the b
   - [x] clip start
   - [x] clip end
 - [x] delay start (useful when you want a loop to start only later in the soundscape)
-- [x] delay end (useful when you want a loop to stop after a certain time)
+- [ ] delay end (useful when you want a loop to stop after a certain time)
 - [ ] fades (this will be a simple toggle)
 - [x] save files
   - [x] local save files (doesn't copy your mp3s)
