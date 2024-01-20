@@ -361,20 +361,10 @@ pub fn load(
     })
 }
 
-pub fn exit(has_been_saved: bool) -> Result<RespondResult, Error> {
-    let perform_action =
-        has_been_saved || get_confirmation("Are you sure you want to exit without saving?")?;
-    if perform_action {
-        Ok(RespondResult {
-            mutated: false,
-            saved: false,
-            quit: true,
-        })
-    } else {
-        Ok(RespondResult {
-            mutated: false,
-            saved: false,
-            quit: false,
-        })
-    }
+pub fn exit() -> Result<RespondResult, Error> {
+    Ok(RespondResult {
+        mutated: false,
+        saved: false,
+        quit: true,
+    })
 }

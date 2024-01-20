@@ -6,7 +6,10 @@ use operations::{
     toggle_loop, unloop, RespondResult,
 };
 use player::Player;
-use std::io::Write;
+use rustyline::error::ReadlineError;
+use rustyline::history::FileHistory;
+use rustyline::{DefaultEditor, Editor};
+use std::cell::RefCell;
 use std::{path::PathBuf, time::Duration};
 
 mod operations;
@@ -50,11 +53,8 @@ const ABOUT_DELAY: &str =
 const ABOUT_HELP: &str = "Shows this help message.";
 const ABOUT_EXIT: &str = "Exits the program.";
 
-const HELP_MESSAGE: &str = formatcp!(
-    "\
-{{name}}: {{about}}
-
-Usage:
+const USAGE: &str = formatcp!(
+    "
 \t{ADD_USAGE}\t\t{ABOUT_ADD}
 \t{REMOVE_USAGE}\t\t\t{ABOUT_REMOVE}
 \t{SHOW_USAGE}\t\t\t{ABOUT_SHOW}
@@ -77,6 +77,12 @@ Note that:
 "
 );
 
+const HELP_MESSAGE: &str = "\
+{name}: {about}
+
+Usage: {usage}\
+";
+
 const COMMAND_HELP: &str = "\
 usage: {usage}
 
@@ -86,7 +92,7 @@ usage: {usage}
 macro_rules! build {
     ($($(#$macro:tt)? $ident:ident $({$($body:tt)*})?),*) => {
         #[derive(Debug, Parser)]
-        #[command(no_binary_name = true, help_template = HELP_MESSAGE, about = "A simple audio looping application for the creation of soundscapes.")]
+        #[command(no_binary_name = true, help_template = HELP_MESSAGE, override_usage = USAGE, about = "A simple audio looping application for the creation of soundscapes.")]
         enum Commands {$(
             #[command(no_binary_name = true, allow_missing_positional = true, help_template = COMMAND_HELP)]
             $(#$macro)?
@@ -205,35 +211,56 @@ fn parse_duration(dur: &str) -> Result<Duration, Error> {
     Ok(duration_str::parse(dur)?)
 }
 
+// FIXME: this only works if the app stays single threaded. Also, when I write the GUI version, this should probably be refactored.
+// additionally, It prevents any debugger from working;
+thread_local! {static READLINE: RefCell<Editor<(), FileHistory>> = RefCell::new(DefaultEditor::new().expect("error: could not get access to the stdin."))}
+
 fn main() -> Result<(), String> {
     println!(
-        "dnd-player Copyright (C) 2024 J.P Hagedoorn AKA Dexterdy Krataigos
-        This program comes with ABSOLUTELY NO WARRANTY.
-        This is free software, and you are welcome to redistribute it
-        under the conditions of the GPL v3."
+        r"Troubadour Copyright (C) 2024 J.P Hagedoorn AKA Dexterdy Krataigos
+This program comes with ABSOLUTELY NO WARRANTY.
+This is free software, and you are welcome to redistribute it
+under the conditions of the GPL v3."
     );
+
     let mut players = Vec::new();
     let mut has_been_saved = true;
-    loop {
-        let line = readline("$ ").map_err(|e| e.to_string())?;
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
 
-        match respond(&mut players, line, has_been_saved) {
+    loop {
+        let mut should_quit = false;
+
+        let response = readline("$ ").and_then(|line| {
+            let line = line.trim();
+            respond(&mut players, &line, has_been_saved)
+        });
+
+        match response {
             Ok(RespondResult {
                 saved,
                 mutated,
                 quit,
             }) => {
                 has_been_saved = (has_been_saved || saved) && !mutated;
-                if quit {
-                    break Ok(());
-                }
+                should_quit = quit;
             }
-            Err(err) => {
-                println!("{err}");
+            Err(err) => match err.downcast::<ReadlineError>() {
+                Ok(ReadlineError::Interrupted) => should_quit = true,
+                Ok(err) => println!("{err}"),
+                Err(err) => println!("{err}"),
+            },
+        }
+
+        if should_quit {
+            let quit = has_been_saved
+                || get_confirmation("Are you sure you want to exit without saving?")
+                    .unwrap_or_else(|e| {
+                        matches!(
+                            e.downcast::<ReadlineError>(),
+                            Ok(ReadlineError::Interrupted)
+                        )
+                    });
+            if quit {
+                break Ok(());
             }
         }
     }
@@ -244,6 +271,13 @@ fn respond(
     line: &str,
     has_been_saved: bool,
 ) -> Result<RespondResult, Error> {
+    if line.is_empty() {
+        return Ok(RespondResult {
+            saved: false,
+            mutated: false,
+            quit: false,
+        });
+    }
     let args = shlex::split(line).ok_or_else(|| {
         Error::msg("error: cannot parse input. Perhaps you have erronous quotation(\"\")?")
     })?;
@@ -263,20 +297,24 @@ fn respond(
         Commands::Delay { ids, duration } => delay(players, ids, duration),
         Commands::Save { path } => save(players, &path),
         Commands::Load { path } => load(players, &path, has_been_saved),
-        Commands::Exit => exit(has_been_saved),
+        Commands::Exit => exit(),
     }
 }
 
 pub fn readline(prompt: &str) -> Result<String, Error> {
-    write!(std::io::stdout(), "{prompt}").map_err(|e| Error::msg(e.to_string()))?;
-    std::io::stdout()
-        .flush()
-        .map_err(|e| Error::msg(e.to_string()))?;
-    let mut buffer = String::new();
-    std::io::stdin()
-        .read_line(&mut buffer)
-        .map_err(|e| Error::msg(e.to_string()))?;
-    Ok(buffer)
+    READLINE.with_borrow_mut(|rl| {
+        let line = rl.readline(prompt);
+        match line {
+            Ok(line) => {
+                rl.add_history_entry(line.as_str()).unwrap_or_default();
+                Ok(line)
+            }
+            Err(ReadlineError::Eof) => Err(Error::msg("error: unexpected EOF.")),
+            Err(ReadlineError::WindowResized) => readline(prompt),
+            Err(ReadlineError::Interrupted) => Ok(line?),
+            _ => Err(Error::msg("error: could not read from stdin")),
+        }
+    })
 }
 
 fn get_confirmation(prompt: &str) -> Result<bool, Error> {
