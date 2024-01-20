@@ -365,6 +365,6 @@ pub fn exit() -> Result<RespondResult, Error> {
     Ok(RespondResult {
         mutated: false,
         saved: false,
-        quit: false,
+        quit: true,
     })
 }
