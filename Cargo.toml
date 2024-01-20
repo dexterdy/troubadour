@@ -1,5 +1,5 @@
 [package]
-name = "dnd-player"
+name = "troubadour"
 version = "0.1.0"
 edition = "2021"
 authors = ["J.P. Hagedoorn AKA Dexterdy Krataigos"]
@@ -20,3 +20,5 @@ duration-human = "0.1.10"
 duration-str = { version = "0.7.1", default-features = false }
 serde_json = "1.0.109"
 serde = { version = "1.0.193", features = ["derive"] }
+rustyline = "13.0.0"
+ctrlc = "3.4.2"

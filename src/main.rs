@@ -1,12 +1,17 @@
 use anyhow::Error;
 use clap::Parser;
 use const_format::formatcp;
+use ctrlc;
 use operations::{
     add, delay, exit, load, pause, play, remove, save, set_end, set_start, set_volume, show, stop,
     toggle_loop, unloop, RespondResult,
 };
 use player::Player;
-use std::io::Write;
+use rustyline::error::ReadlineError;
+use rustyline::history::FileHistory;
+use rustyline::{DefaultEditor, Editor};
+use std::cell::RefCell;
+use std::sync::mpsc::{channel, TryRecvError};
 use std::{path::PathBuf, time::Duration};
 
 mod operations;
@@ -205,16 +210,33 @@ fn parse_duration(dur: &str) -> Result<Duration, Error> {
     Ok(duration_str::parse(dur)?)
 }
 
+// FIXME: this only works if the app stays single threaded. Also, when I write the GUI version, this should probably be refactored.
+// additionally, It prevents any debugger from working;
+thread_local! {static READLINE: RefCell<Editor<(), FileHistory>> = RefCell::new(DefaultEditor::new().expect("error: could not get access to the stdin."))}
+
 fn main() -> Result<(), String> {
+    let (tx, rx) = channel();
+    ctrlc::set_handler(move || tx.send(()).expect("error: could not send ctrlc signal."))
+        .expect("error: cannot set ctrlc handler.");
+
     println!(
-        "dnd-player Copyright (C) 2024 J.P Hagedoorn AKA Dexterdy Krataigos
-        This program comes with ABSOLUTELY NO WARRANTY.
-        This is free software, and you are welcome to redistribute it
-        under the conditions of the GPL v3."
+        r"Troubadour Copyright (C) 2024 J.P Hagedoorn AKA Dexterdy Krataigos
+This program comes with ABSOLUTELY NO WARRANTY.
+This is free software, and you are welcome to redistribute it
+under the conditions of the GPL v3."
     );
+
     let mut players = Vec::new();
     let mut has_been_saved = true;
+
     loop {
+        let ctrlc = rx.try_recv();
+        let mut should_quit = match ctrlc {
+            Ok(_) => true,
+            Err(TryRecvError::Empty) => false,
+            Err(TryRecvError::Disconnected) => panic!("error: ctrlc handler disconnected."),
+        };
+
         let line = readline("$ ").map_err(|e| e.to_string())?;
         let line = line.trim();
         if line.is_empty() {
@@ -228,12 +250,26 @@ fn main() -> Result<(), String> {
                 quit,
             }) => {
                 has_been_saved = (has_been_saved || saved) && !mutated;
-                if quit {
-                    break Ok(());
-                }
+                should_quit = should_quit || quit;
             }
-            Err(err) => {
-                println!("{err}");
+            Err(err) => match err.downcast::<ReadlineError>() {
+                Ok(ReadlineError::Interrupted) => should_quit = true,
+                Ok(err) => println!("{err}"),
+                Err(err) => println!("{err}"),
+            },
+        }
+
+        if should_quit {
+            let quit = has_been_saved
+                || get_confirmation("Are you sure you want to exit without saving?")
+                    .unwrap_or_else(|e| {
+                        matches!(
+                            e.downcast::<ReadlineError>(),
+                            Ok(ReadlineError::Interrupted)
+                        )
+                    });
+            if quit {
+                break Ok(());
             }
         }
     }
@@ -263,20 +299,24 @@ fn respond(
         Commands::Delay { ids, duration } => delay(players, ids, duration),
         Commands::Save { path } => save(players, &path),
         Commands::Load { path } => load(players, &path, has_been_saved),
-        Commands::Exit => exit(has_been_saved),
+        Commands::Exit => exit(),
     }
 }
 
 pub fn readline(prompt: &str) -> Result<String, Error> {
-    write!(std::io::stdout(), "{prompt}").map_err(|e| Error::msg(e.to_string()))?;
-    std::io::stdout()
-        .flush()
-        .map_err(|e| Error::msg(e.to_string()))?;
-    let mut buffer = String::new();
-    std::io::stdin()
-        .read_line(&mut buffer)
-        .map_err(|e| Error::msg(e.to_string()))?;
-    Ok(buffer)
+    READLINE.with_borrow_mut(|rl| {
+        let line = rl.readline(prompt);
+        match line {
+            Ok(line) => {
+                rl.add_history_entry(line.as_str()).unwrap_or_default();
+                Ok(line)
+            }
+            Err(ReadlineError::Eof) => Err(Error::msg("error: unexpected EOF.")),
+            Err(ReadlineError::WindowResized) => readline(prompt),
+            Err(ReadlineError::Interrupted) => Ok(line?),
+            _ => Err(Error::msg("error: could not read from stdin")),
+        }
+    })
 }
 
 fn get_confirmation(prompt: &str) -> Result<bool, Error> {
