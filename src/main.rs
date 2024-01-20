@@ -1,7 +1,6 @@
 use anyhow::Error;
 use clap::Parser;
 use const_format::formatcp;
-use ctrlc;
 use operations::{
     add, delay, exit, load, pause, play, remove, save, set_end, set_start, set_volume, show, stop,
     toggle_loop, unloop, RespondResult,
@@ -11,7 +10,6 @@ use rustyline::error::ReadlineError;
 use rustyline::history::FileHistory;
 use rustyline::{DefaultEditor, Editor};
 use std::cell::RefCell;
-use std::sync::mpsc::{channel, TryRecvError};
 use std::{path::PathBuf, time::Duration};
 
 mod operations;
@@ -215,10 +213,6 @@ fn parse_duration(dur: &str) -> Result<Duration, Error> {
 thread_local! {static READLINE: RefCell<Editor<(), FileHistory>> = RefCell::new(DefaultEditor::new().expect("error: could not get access to the stdin."))}
 
 fn main() -> Result<(), String> {
-    let (tx, rx) = channel();
-    ctrlc::set_handler(move || tx.send(()).expect("error: could not send ctrlc signal."))
-        .expect("error: cannot set ctrlc handler.");
-
     println!(
         r"Troubadour Copyright (C) 2024 J.P Hagedoorn AKA Dexterdy Krataigos
 This program comes with ABSOLUTELY NO WARRANTY.
@@ -230,27 +224,21 @@ under the conditions of the GPL v3."
     let mut has_been_saved = true;
 
     loop {
-        let ctrlc = rx.try_recv();
-        let mut should_quit = match ctrlc {
-            Ok(_) => true,
-            Err(TryRecvError::Empty) => false,
-            Err(TryRecvError::Disconnected) => panic!("error: ctrlc handler disconnected."),
-        };
+        let mut should_quit = false;
 
-        let line = readline("$ ").map_err(|e| e.to_string())?;
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
+        let response = readline("$ ").and_then(|line| {
+            let line = line.trim();
+            respond(&mut players, &line, has_been_saved)
+        });
 
-        match respond(&mut players, line, has_been_saved) {
+        match response {
             Ok(RespondResult {
                 saved,
                 mutated,
                 quit,
             }) => {
                 has_been_saved = (has_been_saved || saved) && !mutated;
-                should_quit = should_quit || quit;
+                should_quit = quit;
             }
             Err(err) => match err.downcast::<ReadlineError>() {
                 Ok(ReadlineError::Interrupted) => should_quit = true,
@@ -280,6 +268,13 @@ fn respond(
     line: &str,
     has_been_saved: bool,
 ) -> Result<RespondResult, Error> {
+    if line.is_empty() {
+        return Ok(RespondResult {
+            saved: false,
+            mutated: false,
+            quit: false,
+        });
+    }
     let args = shlex::split(line).ok_or_else(|| {
         Error::msg("error: cannot parse input. Perhaps you have erronous quotation(\"\")?")
     })?;

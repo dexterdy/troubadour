@@ -21,4 +21,3 @@ duration-str = { version = "0.7.1", default-features = false }
 serde_json = "1.0.109"
 serde = { version = "1.0.193", features = ["derive"] }
 rustyline = "13.0.0"
-ctrlc = "3.4.2"

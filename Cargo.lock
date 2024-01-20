@@ -340,16 +340,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ctrlc"
-version = "3.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b467862cc8610ca6fc9a1532d7777cee0804e678ab45410897b9396495994a0b"
-dependencies = [
- "nix 0.27.1",
- "windows-sys",
-]
-
-[[package]]
 name = "dasp_sample"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1176,7 +1166,6 @@ dependencies = [
  "anyhow",
  "clap",
  "const_format",
- "ctrlc",
  "duration-human",
  "duration-str",
  "fomat-macros",
