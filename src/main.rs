@@ -53,11 +53,8 @@ const ABOUT_DELAY: &str =
 const ABOUT_HELP: &str = "Shows this help message.";
 const ABOUT_EXIT: &str = "Exits the program.";
 
-const HELP_MESSAGE: &str = formatcp!(
-    "\
-{{name}}: {{about}}
-
-Usage:
+const USAGE: &str = formatcp!(
+    "
 \t{ADD_USAGE}\t\t{ABOUT_ADD}
 \t{REMOVE_USAGE}\t\t\t{ABOUT_REMOVE}
 \t{SHOW_USAGE}\t\t\t{ABOUT_SHOW}
@@ -80,6 +77,12 @@ Note that:
 "
 );
 
+const HELP_MESSAGE: &str = "\
+{name}: {about}
+
+Usage: {usage}\
+";
+
 const COMMAND_HELP: &str = "\
 usage: {usage}
 
@@ -89,7 +92,7 @@ usage: {usage}
 macro_rules! build {
     ($($(#$macro:tt)? $ident:ident $({$($body:tt)*})?),*) => {
         #[derive(Debug, Parser)]
-        #[command(no_binary_name = true, help_template = HELP_MESSAGE, about = "A simple audio looping application for the creation of soundscapes.")]
+        #[command(no_binary_name = true, help_template = HELP_MESSAGE, override_usage = USAGE, about = "A simple audio looping application for the creation of soundscapes.")]
         enum Commands {$(
             #[command(no_binary_name = true, allow_missing_positional = true, help_template = COMMAND_HELP)]
             $(#$macro)?
