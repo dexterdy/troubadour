@@ -140,25 +140,13 @@ pub fn remove(players: &mut Vec<Player>, ids: Vec<IdOrName>) -> Result<RespondRe
     // unsafe to have a mut and not mut ref at the same time
     // make sure to print before remove
     // this is an ugly hack
-    let mut selected_players = select_players(unsafe { &*(players as *const Vec<Player>) }, ids)?
+    let selected_players = select_players(unsafe { &*(players as *const Vec<Player>) }, ids)?
         .iter()
         .map(|p| p.name.as_str())
-        .enumerate()
-        .collect::<Vec<(usize, &str)>>();
+        .collect::<Vec<&str>>();
     if get_confirmation("Are you sure you want to remove these sounds?")? {
-        println!(
-            "Removed {}",
-            selected_players
-                .iter()
-                .map(|(_, p)| *p)
-                .collect::<Vec<&str>>()
-                .join(", ")
-        );
-        selected_players.sort_by_key(|p| p.0);
-        selected_players.reverse();
-        for (pos, _) in selected_players.clone() {
-            players.remove(pos);
-        }
+        println!("Removed {}", selected_players.join(", "));
+        players.retain(|p| !selected_players.contains(&p.name.as_str()));
         Ok(RespondResult {
             mutated: true,
             saved: false,

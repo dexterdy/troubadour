@@ -8,6 +8,7 @@ use paste::item;
 use rodio::{source::Zero, Decoder, OutputStream, OutputStreamHandle, Sink, Source};
 use serde::{Deserialize, Serialize};
 use std::{
+    cell::RefCell,
     fs::File,
     io::{self, BufReader},
     path::{Path, PathBuf},
@@ -33,7 +34,7 @@ pub struct Player {
     handle: OutputStreamHandle,
     sink: Sink,
     media: PathBuf,
-    file_handle: File,
+    file_handle: RefCell<File>,
     last_time_poll: Option<Instant>,
     time_at_last_poll: Duration,
     pub name: String,
@@ -153,7 +154,7 @@ impl Player {
         Ok(Self {
             name,
             media,
-            file_handle: file,
+            file_handle: RefCell::new(file),
             playing: false,
             paused: false,
             volume: 100,
@@ -189,7 +190,7 @@ impl Player {
         Ok(Self {
             name: player.name.clone(),
             media,
-            file_handle: file,
+            file_handle: RefCell::new(file),
             playing: false,
             paused: false,
             volume: player.volume,
@@ -235,8 +236,11 @@ impl Player {
     ) -> Result<(), Error> {
         // possible edge case: prev buffer reads from file at same time as this operation, causing a race condition?
         let is_empty = self.sink.empty();
+        let file = File::open(&self.media).map_err(|err| convert_file_error(&self.media, &err))?;
+        self.file_handle.replace(file);
         let media = BufReader::new(
             self.file_handle
+                .borrow()
                 .try_clone()
                 .map_err(|err| convert_file_error(&self.media, &err))?,
         );
@@ -316,6 +320,9 @@ impl Player {
     }
 
     pub fn play(&mut self) -> Result<(), Error> {
+        if self.get_is_playing() {
+            return Ok(());
+        }
         if self.get_is_paused() {
             self.sink.play();
         } else {
