@@ -187,7 +187,7 @@ impl Player {
     pub fn from_serializable(player: &Serialisable) -> Result<Self, Error> {
         let (stream, handle, sink) = get_device_stuff()?;
         let (file, media) = file_user_fallback(player.media.clone(), &player.name)?;
-        Ok(Self {
+        let mut new_player = Self {
             name: player.name.clone(),
             media,
             file_handle: RefCell::new(file),
@@ -204,7 +204,9 @@ impl Player {
             sink,
             last_time_poll: None,
             time_at_last_poll: Duration::from_secs(0),
-        })
+        };
+        new_player.volume(player.volume);
+        Ok(new_player)
     }
 
     as_builder! {

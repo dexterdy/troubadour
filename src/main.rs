@@ -34,6 +34,8 @@ const UNLOOP_USAGE: &str = "unloop [IDs]";
 const SET_START_USAGE: &str = "set-start [IDs] -p <POS>";
 const SET_END_USAGE: &str = "set-end [IDs] [-p <POS>]";
 const DELAY_USAGE: &str = "delay [IDs] -d <DURATION>";
+const SAVE_USAGE: &str = "save -p <PATH>";
+const LOAD_USAGE: &str = "load -p <PATH>";
 
 const NO_ID_ADDENDUM: &str = "When called without ID, this will select the last added sound.";
 
@@ -50,6 +52,9 @@ const ABOUT_SET_END: &str =
     "Clips the end of a sound by selecting the ending position. Reset by omitting POS.";
 const ABOUT_DELAY: &str =
     "Delays playing the sound after the play command. Useful in combination with  play-all.";
+const ABOUT_SAVE: &str = "Saves the current configuration to a file.";
+const ABOUT_LOAD: &str =
+    "Loads a saved configuration. You can choose to replace or add to current configuration.";
 const ABOUT_HELP: &str = "Shows this help message.";
 const ABOUT_EXIT: &str = "Exits the program.";
 
@@ -67,6 +72,8 @@ const USAGE: &str = formatcp!(
 \t{SET_START_USAGE}\t{ABOUT_SET_START}
 \t{SET_END_USAGE}\t{ABOUT_SET_END}
 \t{DELAY_USAGE}\t{ABOUT_DELAY}
+\t{SAVE_USAGE}\t\t\t{ABOUT_SAVE}
+\t{LOAD_USAGE}\t\t\t{ABOUT_LOAD}
 \thelp\t\t\t\t{ABOUT_HELP}
 \texit\t\t\t\t{ABOUT_EXIT}
 
@@ -174,10 +181,12 @@ build! {
         #[arg(long, short, value_parser = parse_duration)]
         duration: Duration,
     },
+    #[command(override_usage=SAVE_USAGE, about=format!("{ABOUT_SAVE}"))]
     Save {
         #[arg(long, short)]
         path: PathBuf,
     },
+    #[command(override_usage=LOAD_USAGE, about=format!("{ABOUT_LOAD}"))]
     Load {
         #[arg(long, short)]
         path: PathBuf,
