@@ -10,13 +10,13 @@ use rustyline::error::ReadlineError;
 use rustyline::history::FileHistory;
 use rustyline::{DefaultEditor, Editor};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::{path::PathBuf, time::Duration};
 
 mod operations;
 mod player;
 
 //TODO: Implement a sound length feature, based on amount samples
-//TODO: add simple, better cli using https://crates.io/crates/rustyline
 //TODO: add fades toggle
 //TODO: implement grouping
 //FAR FUTURE: make a nice GUI
@@ -118,69 +118,63 @@ build! {
     },
     #[command(override_usage=REMOVE_USAGE, about=format!("{ABOUT_REMOVE} {NO_ID_ADDENDUM}"))]
     Remove {
-        #[arg(value_parser = parse_id)]
-        ids: Vec<IdOrName>,
+        ids: Vec<String>,
     },
     #[command(override_usage=PLAY_USAGE, about=NO_ID_ADDENDUM)]
     Play {
-        #[arg(value_parser = parse_id)]
-        ids: Vec<IdOrName>,
+        ids: Vec<String>,
     },
     #[command(override_usage=STOP_USAGE, about=NO_ID_ADDENDUM)]
     Stop {
-        #[arg(value_parser = parse_id)]
-        ids: Vec<IdOrName>,
+        ids: Vec<String>,
     },
     #[command(override_usage=PAUSE_USAGE, about=NO_ID_ADDENDUM)]
     Pause {
-        #[arg(value_parser = parse_id)]
-        ids: Vec<IdOrName>,
+        ids: Vec<String>,
     },
     #[command(override_usage=VOLUME_USAGE, about=format!("{ABOUT_VOLUME} {NO_ID_ADDENDUM}"))]
     Volume {
-        #[arg(value_parser = parse_id)]
-        ids: Vec<IdOrName>,
+        ids: Vec<String>,
         #[arg(long, short)]
         volume: u32
     },
     #[command(override_usage=SHOW_USAGE, about=format!("{ABOUT_SHOW} {NO_ID_ADDENDUM}"))]
     Show {
-        #[arg(value_parser = parse_id)]
-        ids: Vec<IdOrName>,
+        ids: Vec<String>,
     },
     #[command(override_usage=LOOP_USAGE, about=format!("{ABOUT_LOOP_LONG} {NO_ID_ADDENDUM}"))]
     Loop {
-        #[arg(value_parser = parse_id)]
-        ids: Vec<IdOrName>,
+        ids: Vec<String>,
         #[arg(long, short, value_parser = parse_duration)]
         duration: Option<Duration>,
     },
     #[command(override_usage=UNLOOP_USAGE, about=format!("{ABOUT_UNLOOP} {NO_ID_ADDENDUM}"))]
     Unloop {
-        #[arg(value_parser = parse_id)]
-        ids: Vec<IdOrName>,
+        ids: Vec<String>,
     },
     #[command(override_usage=SET_START_USAGE, about=format!("{ABOUT_SET_START} {NO_ID_ADDENDUM}"))]
     SetStart {
-        #[arg(value_parser = parse_id)]
-        ids: Vec<IdOrName>,
+        ids: Vec<String>,
         #[arg(long, short, value_parser = parse_duration)]
         pos: Duration,
     },
     #[command(override_usage=SET_END_USAGE, about=format!("{ABOUT_SET_END} {NO_ID_ADDENDUM}"))]
     SetEnd {
-        #[arg(value_parser = parse_id)]
-        ids: Vec<IdOrName>,
+        ids: Vec<String>,
         #[arg(long, short, value_parser = parse_duration)]
         pos: Option<Duration>,
     },
     #[command(override_usage=DELAY_USAGE, about=format!("{ABOUT_DELAY} {NO_ID_ADDENDUM}"))]
     Delay {
-        #[arg(value_parser = parse_id)]
-        ids: Vec<IdOrName>,
+        ids: Vec<String>,
         #[arg(long, short, value_parser = parse_duration)]
         duration: Duration,
     },
+    // Group {
+    //     #[arg(long, short)]
+    //     name: String,
+    //     ids: Vec<String>,
+    // },
     #[command(override_usage=SAVE_USAGE, about=format!("{ABOUT_SAVE}"))]
     Save {
         #[arg(long, short)]
@@ -193,27 +187,6 @@ build! {
     },
     #[command(about=ABOUT_EXIT)]
     Exit
-}
-
-#[derive(Debug, Clone, Eq, Hash, PartialEq)]
-pub enum IdOrName {
-    Id(usize),
-    All,
-    Name(String),
-}
-
-fn parse_id(id: &str) -> Result<IdOrName, Error> {
-    let int_result = id.parse::<usize>();
-    int_result.map_or_else(
-        |_| {
-            if &id.to_lowercase() == "all" {
-                Ok(IdOrName::All)
-            } else {
-                Ok(IdOrName::Name(id.to_string()))
-            }
-        },
-        |res| Ok(IdOrName::Id(res)),
-    )
 }
 
 fn parse_duration(dur: &str) -> Result<Duration, Error> {
@@ -232,7 +205,9 @@ This is free software, and you are welcome to redistribute it
 under the conditions of the GPL v3."
     );
 
-    let mut players = Vec::new();
+    let mut players = HashMap::new();
+    // let mut player_groups = HashMap::new();
+
     let mut has_been_saved = true;
 
     loop {
@@ -276,7 +251,7 @@ under the conditions of the GPL v3."
 }
 
 fn respond(
-    players: &mut Vec<Player>,
+    players: &mut HashMap<String, Player>,
     line: &str,
     has_been_saved: bool,
 ) -> Result<RespondResult, Error> {
