@@ -140,15 +140,20 @@ pub fn add(state: &mut AppState, path: PathBuf, name: String) -> Result<RespondR
 }
 
 pub fn remove(state: &mut AppState, ids: Vec<String>) -> Result<RespondResult, Error> {
+    validate_selection(state, &ids, &vec![])?;
+    if ids.len() == 0 {
+        return Err(Error::msg(
+            "error: please provide the ids of the players that you want to remove",
+        ));
+    }
     for id in &ids {
-        if !state.players.contains_key(id) {
-            return Err(Error::msg(format!(
-                "error: no player found with name {}",
-                id
-            )));
+        if id.to_lowercase() == "all" {
+            return Err(Error::msg(
+                "error: 'all' is not a valid id for this command",
+            ));
         }
     }
-    if get_confirmation("Are you sure you want to remove these sounds?")? {
+    if get_confirmation("Are you sure you want to remove these players?")? {
         println!("Removed {}", ids.join(", "));
         state.players.retain(|k, _| !ids.contains(k));
         state.top_group.retain(|n| !ids.contains(n));
@@ -338,14 +343,51 @@ pub fn delay(
     })
 }
 
-// pub fn group(
-//     players: &AppState,
-//     name: String,
-//     ids: Vec<String>, group_ids: Vec<String>,
-//     groups: &mut HashMap<String, Vec<String>>,
-// ) -> Result<RespondResult, Error> {
-//     select_players(players, &ids)?; // perform selection just to be sure that the players actually exist
-// }
+pub fn group(state: &mut AppState, name: String, ids: Vec<String>) -> Result<RespondResult, Error> {
+    validate_selection(state, &ids, &vec![])?;
+    if state.groups.contains_key(&name) {
+        let group = state.groups.get_mut(&name).unwrap();
+        group.extend(ids);
+    } else {
+        let mut group = IndexSet::new();
+        group.extend(ids);
+        state.groups.insert(name, group);
+    };
+    Ok(RespondResult {
+        mutated: true,
+        saved: false,
+        quit: false,
+    })
+}
+
+pub fn ungroup(
+    state: &mut AppState,
+    name: String,
+    ids: Vec<String>,
+) -> Result<RespondResult, Error> {
+    validate_selection(state, &ids, &vec![name.clone()])?;
+    let group = state.groups.get_mut(&name).unwrap();
+    for id in &ids {
+        if !group.contains(id) {
+            return Err(Error::msg(format!(
+                "error: {id} is not part of the group {name}"
+            )));
+        }
+    }
+    let ids: IndexSet<String> = ids.into_iter().collect();
+    if ids.len() == group.len() {
+        state.groups.shift_remove(&name);
+    } else {
+        for id in ids {
+            group.shift_remove(&id);
+        }
+    }
+    Ok(RespondResult {
+        mutated: true,
+        saved: false,
+        quit: false,
+    })
+}
 
 #[derive(Serialize, Deserialize)]
 struct SerializableAppState {

@@ -3,8 +3,8 @@ use clap::Parser;
 use const_format::formatcp;
 use indexmap::{IndexMap, IndexSet};
 use operations::{
-    add, delay, exit, load, pause, play, remove, save, set_end, set_start, set_volume, show, stop,
-    toggle_loop, unloop, RespondResult,
+    add, delay, exit, group, load, pause, play, remove, save, set_end, set_start, set_volume, show,
+    stop, toggle_loop, ungroup, unloop, RespondResult,
 };
 use player::Player;
 use rustyline::error::ReadlineError;
@@ -191,11 +191,16 @@ build! {
         #[arg(long, short)]
         groups: Vec<String>
     },
-    // Group {
-    //     #[arg(long, short)]
-    //     name: String,
-    //     ids: Vec<String>,
-    // },
+    Group {
+        #[arg(long, short)]
+        group: String,
+        ids: Vec<String>,
+    },
+    Ungroup {
+        #[arg(long, short)]
+        group: String,
+        ids: Vec<String>,
+    },
     #[command(override_usage=SAVE_USAGE, about=format!("{ABOUT_SAVE}"))]
     Save {
         #[arg(long, short)]
@@ -325,6 +330,11 @@ fn respond(state: &mut AppState, line: &str, has_been_saved: bool) -> Result<Res
             groups,
             duration,
         } => delay(state, ids, groups, duration),
+        Commands::Group {
+            group: group_name,
+            ids,
+        } => group(state, group_name, ids),
+        Commands::Ungroup { group, ids } => ungroup(state, group, ids),
         Commands::Save { path } => save(state, &path),
         Commands::Load { path } => load(state, &path, has_been_saved),
         Commands::Exit => exit(),
