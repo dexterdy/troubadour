@@ -18,7 +18,7 @@ use std::{
 use crate::readline;
 
 #[derive(Serialize, Deserialize)]
-pub struct Serialisable {
+pub struct Serializable {
     media: PathBuf,
     name: String,
     volume: u32,
@@ -171,8 +171,8 @@ impl Player {
         })
     }
 
-    pub fn to_serializable(&self) -> Serialisable {
-        Serialisable {
+    pub fn to_serializable(&self) -> Serializable {
+        Serializable {
             name: self.name.clone(),
             media: self.media.clone(),
             volume: self.volume,
@@ -184,7 +184,7 @@ impl Player {
         }
     }
 
-    pub fn from_serializable(player: &Serialisable) -> Result<Self, Error> {
+    pub fn from_serializable(player: &Serializable) -> Result<Self, Error> {
         let (stream, handle, sink) = get_device_stuff()?;
         let (file, media) = file_user_fallback(player.media.clone(), &player.name)?;
         let mut new_player = Self {

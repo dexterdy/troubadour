@@ -1,6 +1,7 @@
 use anyhow::Error;
 use clap::Parser;
 use const_format::formatcp;
+use indexmap::{IndexMap, IndexSet};
 use operations::{
     add, delay, exit, load, pause, play, remove, save, set_end, set_start, set_volume, show, stop,
     toggle_loop, unloop, RespondResult,
@@ -80,7 +81,7 @@ const USAGE: &str = formatcp!(
 Note that:
 \t- [..] indicates an optional value.
 \t- Most commands will select the last added sound if ID is not supplied.
-\t- ID can be a name, 'all', or an index. For instance: 'play horn', 'play all' or 'play 0'\
+\t- ID can be a name, a group name or 'all'. For instance: 'play horn', 'play ensemble' or 'play all'\
 "
 );
 
@@ -123,52 +124,72 @@ build! {
     #[command(override_usage=PLAY_USAGE, about=NO_ID_ADDENDUM)]
     Play {
         ids: Vec<String>,
+        #[arg(long, short)]
+        groups: Vec<String>
     },
     #[command(override_usage=STOP_USAGE, about=NO_ID_ADDENDUM)]
     Stop {
         ids: Vec<String>,
+        #[arg(long, short)]
+        groups: Vec<String>
     },
     #[command(override_usage=PAUSE_USAGE, about=NO_ID_ADDENDUM)]
     Pause {
         ids: Vec<String>,
+        #[arg(long, short)]
+        groups: Vec<String>
     },
     #[command(override_usage=VOLUME_USAGE, about=format!("{ABOUT_VOLUME} {NO_ID_ADDENDUM}"))]
     Volume {
         ids: Vec<String>,
         #[arg(long, short)]
-        volume: u32
+        volume: u32,
+        #[arg(long, short)]
+        groups: Vec<String>
     },
     #[command(override_usage=SHOW_USAGE, about=format!("{ABOUT_SHOW} {NO_ID_ADDENDUM}"))]
     Show {
         ids: Vec<String>,
+        #[arg(long, short)]
+        groups: Vec<String>
     },
     #[command(override_usage=LOOP_USAGE, about=format!("{ABOUT_LOOP_LONG} {NO_ID_ADDENDUM}"))]
     Loop {
         ids: Vec<String>,
         #[arg(long, short, value_parser = parse_duration)]
         duration: Option<Duration>,
+        #[arg(long, short)]
+        groups: Vec<String>
     },
     #[command(override_usage=UNLOOP_USAGE, about=format!("{ABOUT_UNLOOP} {NO_ID_ADDENDUM}"))]
     Unloop {
         ids: Vec<String>,
+        #[arg(long, short)]
+        groups: Vec<String>
     },
     #[command(override_usage=SET_START_USAGE, about=format!("{ABOUT_SET_START} {NO_ID_ADDENDUM}"))]
     SetStart {
         ids: Vec<String>,
         #[arg(long, short, value_parser = parse_duration)]
         pos: Duration,
+        #[arg(long, short)]
+        groups: Vec<String>
     },
     #[command(override_usage=SET_END_USAGE, about=format!("{ABOUT_SET_END} {NO_ID_ADDENDUM}"))]
     SetEnd {
         ids: Vec<String>,
         #[arg(long, short, value_parser = parse_duration)]
         pos: Option<Duration>,
+        #[arg(long, short)]
+        groups: Vec<String>
     },
     #[command(override_usage=DELAY_USAGE, about=format!("{ABOUT_DELAY} {NO_ID_ADDENDUM}"))]
     Delay {
         ids: Vec<String>,
         #[arg(long, short, value_parser = parse_duration)]
         duration: Duration,
+        #[arg(long, short)]
+        groups: Vec<String>
     },
     // Group {
     //     #[arg(long, short)]
@@ -197,6 +218,12 @@ fn parse_duration(dur: &str) -> Result<Duration, Error> {
 // additionally, It prevents any debugger from working;
 thread_local! {static READLINE: RefCell<Editor<(), FileHistory>> = RefCell::new(DefaultEditor::new().expect("error: could not get access to the stdin."))}
 
+pub struct AppState {
+    pub players: HashMap<String, Player>,
+    pub top_group: IndexSet<String>,
+    pub groups: IndexMap<String, IndexSet<String>>,
+}
+
 fn main() -> Result<(), String> {
     println!(
         r"Troubadour Copyright (C) 2024 J.P Hagedoorn AKA Dexterdy Krataigos
@@ -205,8 +232,11 @@ This is free software, and you are welcome to redistribute it
 under the conditions of the GPL v3."
     );
 
-    let mut players = HashMap::new();
-    // let mut player_groups = HashMap::new();
+    let mut state = AppState {
+        players: HashMap::new(),
+        top_group: IndexSet::new(),
+        groups: IndexMap::new(),
+    };
 
     let mut has_been_saved = true;
 
@@ -215,7 +245,7 @@ under the conditions of the GPL v3."
 
         let response = readline("$ ").and_then(|line| {
             let line = line.trim();
-            respond(&mut players, &line, has_been_saved)
+            respond(&mut state, &line, has_been_saved)
         });
 
         match response {
@@ -250,11 +280,7 @@ under the conditions of the GPL v3."
     }
 }
 
-fn respond(
-    players: &mut HashMap<String, Player>,
-    line: &str,
-    has_been_saved: bool,
-) -> Result<RespondResult, Error> {
+fn respond(state: &mut AppState, line: &str, has_been_saved: bool) -> Result<RespondResult, Error> {
     if line.is_empty() {
         return Ok(RespondResult {
             saved: false,
@@ -263,24 +289,44 @@ fn respond(
         });
     }
     let args = shlex::split(line).ok_or_else(|| {
-        Error::msg("error: cannot parse input. Perhaps you have erronous quotation(\"\")?")
+        Error::msg("error: cannot parse input. Perhaps you have erroneous quotation(\"\")?")
     })?;
     let matches = Commands::try_parse_from(args)?;
     match matches {
-        Commands::Add { path, name } => add(players, path, name),
-        Commands::Remove { ids } => remove(players, ids),
-        Commands::Play { ids } => play(players, ids),
-        Commands::Stop { ids } => stop(players, ids),
-        Commands::Pause { ids } => pause(players, ids),
-        Commands::Volume { ids, volume } => set_volume(players, ids, volume),
-        Commands::Show { ids } => show(players, ids),
-        Commands::Loop { ids, duration } => toggle_loop(players, ids, duration),
-        Commands::Unloop { ids } => unloop(players, ids),
-        Commands::SetStart { ids, pos: duration } => set_start(players, ids, duration),
-        Commands::SetEnd { ids, pos: duration } => set_end(players, ids, duration),
-        Commands::Delay { ids, duration } => delay(players, ids, duration),
-        Commands::Save { path } => save(players, &path),
-        Commands::Load { path } => load(players, &path, has_been_saved),
+        Commands::Add { path, name } => add(state, path, name),
+        Commands::Remove { ids } => remove(state, ids),
+        Commands::Play { ids, groups } => play(state, ids, groups),
+        Commands::Stop { ids, groups } => stop(state, ids, groups),
+        Commands::Pause { ids, groups } => pause(state, ids, groups),
+        Commands::Volume {
+            ids,
+            groups,
+            volume,
+        } => set_volume(state, ids, groups, volume),
+        Commands::Show { ids, groups } => show(state, ids, groups),
+        Commands::Loop {
+            ids,
+            groups,
+            duration,
+        } => toggle_loop(state, ids, groups, duration),
+        Commands::Unloop { ids, groups } => unloop(state, ids, groups),
+        Commands::SetStart {
+            ids,
+            groups,
+            pos: duration,
+        } => set_start(state, ids, groups, duration),
+        Commands::SetEnd {
+            ids,
+            groups,
+            pos: duration,
+        } => set_end(state, ids, groups, duration),
+        Commands::Delay {
+            ids,
+            groups,
+            duration,
+        } => delay(state, ids, groups, duration),
+        Commands::Save { path } => save(state, &path),
+        Commands::Load { path } => load(state, &path, has_been_saved),
         Commands::Exit => exit(),
     }
 }
@@ -302,9 +348,37 @@ pub fn readline(prompt: &str) -> Result<String, Error> {
 }
 
 fn get_confirmation(prompt: &str) -> Result<bool, Error> {
-    Ok(readline(format!("{prompt} Y/N: ").as_str())
-        .map_err(Error::msg)?
-        .trim()
-        .to_lowercase()
-        == "y")
+    let mut result = None;
+
+    while result.is_none() {
+        let response = readline(format!("{prompt} Y/N: ").as_str())
+            .map_err(Error::msg)?
+            .trim()
+            .to_lowercase();
+
+        if response.to_lowercase() != "y" && response.to_lowercase() != "n" {
+            println!("{} is not a valid valid answer.", response);
+            continue;
+        }
+        result = Some(response.to_lowercase() == "y")
+    }
+    Ok(result.unwrap())
+}
+
+fn get_option(prompt: &str, valid_options: Vec<&str>) -> Result<String, Error> {
+    let mut result = None;
+
+    while result.is_none() {
+        let response = readline(format!("{prompt}: ").as_str())
+            .map_err(Error::msg)?
+            .trim()
+            .to_lowercase();
+
+        if !valid_options.contains(&response.as_str()) {
+            println!("{} is not a valid valid answer.", response);
+            continue;
+        }
+        result = Some(response);
+    }
+    Ok(result.unwrap())
 }

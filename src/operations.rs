@@ -1,45 +1,114 @@
 use anyhow::Error;
-use std::collections::HashMap;
+use indexmap::{IndexMap, IndexSet};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use crate::get_confirmation;
 use crate::player::Player;
-use crate::player::Serialisable;
+use crate::player::Serializable;
+use crate::{get_confirmation, get_option, readline, AppState};
 
-macro_rules! show_selection {
-    ($selection:expr) => {
-        for player in $selection {
-            println!("{}", player.to_string())
-        }
-    };
-}
-
-fn select_player_mut<'a>(
-    players: &'a mut HashMap<String, Player>,
-    id: &String,
-) -> Result<&'a mut Player, Error> {
-    players.get_mut(id).ok_or(Error::msg(format!(
-        "error: no player found with name {}",
-        id
-    )))
-}
-
-fn select_players<'a>(
-    players: &'a HashMap<String, Player>,
+fn validate_selection(
+    state: &AppState,
     ids: &Vec<String>,
-) -> Result<Vec<&'a Player>, Error> {
-    let mut selected_players = vec![];
-    for id in ids {
-        let next_player = players.get(id).ok_or(Error::msg(format!(
-            "error: no player found with name {}",
-            id
-        )))?;
-        selected_players.push(next_player);
+    group_ids: &Vec<String>,
+) -> Result<(), Error> {
+    for group_id in group_ids {
+        if !state.groups.contains_key(group_id) {
+            return Err(Error::msg(format!(
+                "error: no group found with name {}",
+                group_id
+            )));
+        }
     }
-    return Ok(selected_players);
+    if ids.len() == 1 && ids[0].to_lowercase() == "all" {
+        return Ok(());
+    }
+    for id in ids {
+        if id.to_lowercase() == "all" {
+            return Err(Error::msg(
+                "error: id 'all' is only valid when no other id's are specified",
+            ));
+        }
+
+        if !state.players.contains_key(id) {
+            return Err(Error::msg(format!(
+                "error: no player found with name {}",
+                id
+            )));
+        }
+    }
+    if state.top_group.len() == 0 {
+        return Err(Error::msg(
+            "error: no players to select. Add a player first",
+        ));
+    }
+    Ok(())
+}
+
+fn apply_selection(
+    state: &mut AppState,
+    ids: &Vec<String>,
+    group_ids: &Vec<String>,
+    callback: impl Fn(&mut Player) -> Result<(), Error>,
+) -> Result<(), Error> {
+    validate_selection(state, ids, group_ids)?;
+    let mut selection = HashSet::new();
+
+    if ids.len() == 1 && ids[0].to_lowercase() == "all" {
+        selection.extend(state.top_group.clone());
+    } else {
+        let mut add_id = |id: &String| selection.insert(id.clone());
+
+        for id in ids {
+            add_id(id);
+        }
+
+        for group_id in group_ids {
+            for id in state.groups.get(group_id).unwrap() {
+                add_id(id);
+            }
+        }
+
+        if ids.len() == 0 && group_ids.len() == 0 && state.top_group.len() > 0 {
+            add_id(state.top_group.last().ok_or(Error::msg("error: internal reference to player that does not exist. This is a bug. Contact the developer"))?);
+        }
+    }
+
+    for id in selection {
+        callback(state.players.get_mut(&id).unwrap())?;
+    }
+    Ok(())
+}
+
+fn show_selection(
+    state: &AppState,
+    ids: &Vec<String>,
+    group_ids: &Vec<String>,
+) -> Result<(), Error> {
+    validate_selection(state, ids, group_ids)?;
+    if ids.len() == 1 && ids[0].to_lowercase() == "all" {
+        for id in &state.top_group {
+            println!("{}", state.players.get(id).ok_or(Error::msg("error: internal reference to player that does not exist. This is a bug. Contact the developer"))?.to_string());
+        }
+    } else {
+        for id in ids {
+            println!("{}", state.players.get(id).ok_or(Error::msg("error: internal reference to player that does not exist. This is a bug. Contact the developer"))?.to_string());
+        }
+    }
+    for group_id in group_ids {
+        println!("\n{}\n", group_id);
+        for id in state.groups.get(group_id).unwrap() {
+            println!("{}", state.players.get(id).ok_or(Error::msg("error: internal reference to player that does not exist. This is a bug. Contact the developer"))?.to_string());
+        }
+    }
+    if ids.len() == 0 && group_ids.len() == 0 && state.top_group.len() > 0 {
+        println!("{}", state.players.get(state.top_group.last().unwrap()).ok_or(Error::msg("error: internal reference to player that does not exist. This is a bug. Contact the developer"))?.to_string());
+    }
+    Ok(())
 }
 
 pub struct RespondResult {
@@ -48,29 +117,21 @@ pub struct RespondResult {
     pub quit: bool,
 }
 
-pub fn add(
-    players: &mut HashMap<String, Player>,
-    path: PathBuf,
-    name: String,
-) -> Result<RespondResult, Error> {
+pub fn add(state: &mut AppState, path: PathBuf, name: String) -> Result<RespondResult, Error> {
     if &name.to_lowercase() == "all" {
         return Err(Error::msg(
             "error: you cannot use the name 'all', because it is a keyword.",
         ));
     }
-    if name.parse::<u32>().is_ok() {
-        return Err(Error::msg(format!(
-            "error: you cannot use the name '{name}', because it is a number."
-        )));
-    }
-    if players.iter_mut().filter(|(_, p)| p.name == name).count() > 0 {
+    if state.players.contains_key(&name) {
         return Err(Error::msg(format!(
             "error: you cannot use the name '{name}', because it is already used."
         )));
     }
     let new_player = Player::new(path, name.clone())?;
     println!("{}", new_player.to_string());
-    players.insert(name, new_player);
+    state.players.insert(name.clone(), new_player);
+    state.top_group.insert(name);
     Ok(RespondResult {
         mutated: true,
         saved: false,
@@ -78,12 +139,9 @@ pub fn add(
     })
 }
 
-pub fn remove(
-    players: &mut HashMap<String, Player>,
-    ids: Vec<String>,
-) -> Result<RespondResult, Error> {
+pub fn remove(state: &mut AppState, ids: Vec<String>) -> Result<RespondResult, Error> {
     for id in &ids {
-        if !players.contains_key(id) {
+        if !state.players.contains_key(id) {
             return Err(Error::msg(format!(
                 "error: no player found with name {}",
                 id
@@ -92,7 +150,11 @@ pub fn remove(
     }
     if get_confirmation("Are you sure you want to remove these sounds?")? {
         println!("Removed {}", ids.join(", "));
-        players.retain(|k, _| !ids.contains(k));
+        state.players.retain(|k, _| !ids.contains(k));
+        state.top_group.retain(|n| !ids.contains(n));
+        for (_, group) in &mut state.groups {
+            group.retain(|n| !ids.contains(n));
+        }
         Ok(RespondResult {
             mutated: true,
             saved: false,
@@ -108,14 +170,12 @@ pub fn remove(
 }
 
 pub fn play(
-    players: &mut HashMap<String, Player>,
+    state: &mut AppState,
     ids: Vec<String>,
+    group_ids: Vec<String>,
 ) -> Result<RespondResult, Error> {
-    for id in &ids {
-        let player = select_player_mut(players, id)?;
-        player.play()?;
-    }
-    show_selection!(select_players(players, &ids)?);
+    apply_selection(state, &ids, &group_ids, |p| p.play())?;
+    show_selection(state, &ids, &group_ids)?;
     Ok(RespondResult {
         mutated: false,
         saved: false,
@@ -124,14 +184,12 @@ pub fn play(
 }
 
 pub fn stop(
-    players: &mut HashMap<String, Player>,
+    state: &mut AppState,
     ids: Vec<String>,
+    group_ids: Vec<String>,
 ) -> Result<RespondResult, Error> {
-    for id in &ids {
-        let player = select_player_mut(players, id)?;
-        player.stop();
-    }
-    show_selection!(select_players(players, &ids)?);
+    apply_selection(state, &ids, &group_ids, |p| Ok(p.stop()))?;
+    show_selection(state, &ids, &group_ids)?;
     Ok(RespondResult {
         mutated: false,
         saved: false,
@@ -140,14 +198,12 @@ pub fn stop(
 }
 
 pub fn pause(
-    players: &mut HashMap<String, Player>,
+    state: &mut AppState,
     ids: Vec<String>,
+    group_ids: Vec<String>,
 ) -> Result<RespondResult, Error> {
-    for id in &ids {
-        let player = select_player_mut(players, id)?;
-        player.pause();
-    }
-    show_selection!(select_players(players, &ids)?);
+    apply_selection(state, &ids, &group_ids, |p| Ok(p.pause()))?;
+    show_selection(state, &ids, &group_ids)?;
     Ok(RespondResult {
         mutated: false,
         saved: false,
@@ -156,15 +212,13 @@ pub fn pause(
 }
 
 pub fn set_volume(
-    players: &mut HashMap<String, Player>,
+    state: &mut AppState,
     ids: Vec<String>,
+    group_ids: Vec<String>,
     volume: u32,
 ) -> Result<RespondResult, Error> {
-    for id in &ids {
-        let player = select_player_mut(players, id)?;
-        player.volume(volume);
-    }
-    show_selection!(select_players(players, &ids)?);
+    apply_selection(state, &ids, &group_ids, |p| Ok(p.volume(volume)))?;
+    show_selection(state, &ids, &group_ids)?;
     Ok(RespondResult {
         mutated: true,
         saved: false,
@@ -172,9 +226,12 @@ pub fn set_volume(
     })
 }
 
-pub fn show(players: &HashMap<String, Player>, ids: Vec<String>) -> Result<RespondResult, Error> {
-    let players = select_players(players, &ids)?;
-    show_selection!(players);
+pub fn show(
+    state: &AppState,
+    ids: Vec<String>,
+    group_ids: Vec<String>,
+) -> Result<RespondResult, Error> {
+    show_selection(state, &ids, &group_ids)?;
     Ok(RespondResult {
         mutated: false,
         saved: false,
@@ -183,17 +240,19 @@ pub fn show(players: &HashMap<String, Player>, ids: Vec<String>) -> Result<Respo
 }
 
 pub fn toggle_loop(
-    players: &mut HashMap<String, Player>,
+    state: &mut AppState,
     ids: Vec<String>,
+    group_ids: Vec<String>,
     duration: Option<Duration>,
 ) -> Result<RespondResult, Error> {
-    for id in &ids {
-        let player = select_player_mut(players, id)?;
-        player.toggle_loop(true);
-        player.loop_length(duration);
-        player.apply_settings_in_place(false)?;
-    }
-    show_selection!(select_players(players, &ids)?);
+    apply_selection(state, &ids, &group_ids, |p| {
+        p.toggle_loop(true);
+        p.loop_length(duration);
+        p.apply_settings_in_place(false)?;
+        Ok(())
+    })?;
+
+    show_selection(state, &ids, &group_ids)?;
     Ok(RespondResult {
         mutated: true,
         saved: false,
@@ -201,15 +260,17 @@ pub fn toggle_loop(
     })
 }
 pub fn unloop(
-    players: &mut HashMap<String, Player>,
+    state: &mut AppState,
     ids: Vec<String>,
+    group_ids: Vec<String>,
 ) -> Result<RespondResult, Error> {
-    for id in &ids {
-        let player = select_player_mut(players, id)?;
-        player.toggle_loop(false);
-        player.apply_settings_in_place(false)?;
-    }
-    show_selection!(select_players(players, &ids)?);
+    apply_selection(state, &ids, &group_ids, |p| {
+        p.toggle_loop(false);
+        p.apply_settings_in_place(false)?;
+        Ok(())
+    })?;
+
+    show_selection(state, &ids, &group_ids)?;
     Ok(RespondResult {
         mutated: true,
         saved: false,
@@ -218,16 +279,18 @@ pub fn unloop(
 }
 
 pub fn set_start(
-    players: &mut HashMap<String, Player>,
+    state: &mut AppState,
     ids: Vec<String>,
+    group_ids: Vec<String>,
     duration: Duration,
 ) -> Result<RespondResult, Error> {
-    for id in &ids {
-        let player = select_player_mut(players, id)?;
-        player.skip_duration(duration);
-        player.apply_settings_in_place(false)?;
-    }
-    show_selection!(select_players(players, &ids)?);
+    apply_selection(state, &ids, &group_ids, |p| {
+        p.skip_duration(duration);
+        p.apply_settings_in_place(false)?;
+        Ok(())
+    })?;
+
+    show_selection(state, &ids, &group_ids)?;
     Ok(RespondResult {
         mutated: true,
         saved: false,
@@ -236,16 +299,18 @@ pub fn set_start(
 }
 
 pub fn set_end(
-    players: &mut HashMap<String, Player>,
+    state: &mut AppState,
     ids: Vec<String>,
+    group_ids: Vec<String>,
     duration: Option<Duration>,
 ) -> Result<RespondResult, Error> {
-    for id in &ids {
-        let player = select_player_mut(players, id)?;
-        player.take_duration(duration);
-        player.apply_settings_in_place(false)?;
-    }
-    show_selection!(select_players(players, &ids)?);
+    apply_selection(state, &ids, &group_ids, |p| {
+        p.take_duration(duration);
+        p.apply_settings_in_place(false)?;
+        Ok(())
+    })?;
+
+    show_selection(state, &ids, &group_ids)?;
     Ok(RespondResult {
         mutated: true,
         saved: false,
@@ -254,16 +319,18 @@ pub fn set_end(
 }
 
 pub fn delay(
-    players: &mut HashMap<String, Player>,
+    state: &mut AppState,
     ids: Vec<String>,
+    group_ids: Vec<String>,
     duration: Duration,
 ) -> Result<RespondResult, Error> {
-    for id in &ids {
-        let player = select_player_mut(players, id)?;
-        player.set_delay(duration);
-        player.apply_settings_in_place(false)?;
-    }
-    show_selection!(select_players(players, &ids)?);
+    apply_selection(state, &ids, &group_ids, |p| {
+        p.set_delay(duration);
+        p.apply_settings_in_place(false)?;
+        Ok(())
+    })?;
+
+    show_selection(state, &ids, &group_ids)?;
     Ok(RespondResult {
         mutated: true,
         saved: false,
@@ -272,18 +339,33 @@ pub fn delay(
 }
 
 // pub fn group(
-//     players: &HashMap<String, Player>,
+//     players: &AppState,
 //     name: String,
-//     ids: Vec<String>,
+//     ids: Vec<String>, group_ids: Vec<String>,
 //     groups: &mut HashMap<String, Vec<String>>,
 // ) -> Result<RespondResult, Error> {
 //     select_players(players, &ids)?; // perform selection just to be sure that the players actually exist
 // }
 
-pub fn save(players: &mut HashMap<String, Player>, path: &Path) -> Result<RespondResult, Error> {
-    let serialisable: Vec<Serialisable> =
-        players.values_mut().map(|p| p.to_serializable()).collect();
-    let json = serde_json::to_string(&serialisable)?;
+#[derive(Serialize, Deserialize)]
+struct SerializableAppState {
+    players: HashMap<String, Serializable>,
+    top_group: IndexSet<String>,
+    groups: IndexMap<String, IndexSet<String>>,
+}
+
+pub fn save(state: &mut AppState, path: &Path) -> Result<RespondResult, Error> {
+    let serializable: HashMap<String, Serializable> = state
+        .players
+        .iter()
+        .map(|(k, p)| (k.clone(), p.to_serializable()))
+        .collect();
+    let ser_app_state = SerializableAppState {
+        players: serializable,
+        top_group: state.top_group.clone(),
+        groups: state.groups.clone(),
+    };
+    let json = serde_json::to_string(&ser_app_state)?;
     fs::write(path, json)?;
     Ok(RespondResult {
         mutated: false,
@@ -291,28 +373,113 @@ pub fn save(players: &mut HashMap<String, Player>, path: &Path) -> Result<Respon
         quit: false,
     })
 }
+
 pub fn load(
-    players: &mut HashMap<String, Player>,
+    state: &mut AppState,
     path: &Path,
     has_been_saved: bool,
 ) -> Result<RespondResult, Error> {
-    let add_to_soundscape = players.is_empty()
+    let add_to_soundscape = state.players.is_empty()
         || get_confirmation("Do you want to add this to you current soundscape?")?;
     let perform_action = add_to_soundscape
         || has_been_saved
-        || get_confirmation("Are you sure you want to exit without saving?")?;
+        || get_confirmation("Are you sure you want to overwrite this soundscape without saving?")?;
     if perform_action {
-        let json: Vec<Serialisable> = serde_json::from_reader(File::open(path)?)?;
-        let new_players = json
-            .into_iter()
-            .filter_map(|p| Player::from_serializable(&p).ok())
-            .map(|p| (p.name.clone(), p))
-            .collect::<HashMap<String, Player>>();
+        let json: SerializableAppState = serde_json::from_reader(File::open(path)?)?;
+
         if !add_to_soundscape {
-            players.clear();
+            state.players.clear();
+            state.top_group.clear();
+            state.groups.clear();
         }
-        players.extend(new_players);
-        show_selection!(players.values())
+
+        let get_new_name = |thing: String, name: String, existing_group: &IndexSet<&String>| {
+            let mut new_name = name.clone();
+            let mut skip = false;
+
+            while existing_group.contains(&&new_name) {
+                let option = get_option(
+                    format!(
+                        "A {thing} with the name {new_name} already exists. Overwrite(O)/Skip(S)/Rename(R)"
+                    )
+                    .as_str(),
+                    vec!["o", "s", "r"],
+                )?;
+                match option.as_str() {
+                    "o" => {
+                        break;
+                    }
+                    "s" => {
+                        skip = true;
+                    }
+                    "r" => {
+                        new_name = readline("enter new name: ")?;
+                    }
+                    _ => {
+                        return Err(Error::msg("error: non-allowed option got through validation. This is a bug. Contact the developer"));
+                    }
+                }
+            }
+
+            if skip {
+                return Ok(None);
+            }
+            Ok(Some(new_name))
+        };
+
+        let mut handle_new_player =
+            |name: String, group: &mut IndexSet<String>| -> Result<(), Error> {
+                let new_name = get_new_name(
+                    "player".to_string(),
+                    name.clone(),
+                    &state.players.keys().into_iter().collect(),
+                )?;
+
+                if let None = new_name {
+                    return Ok(());
+                }
+
+                let player = json.players.get(&name).unwrap();
+
+                state.players.insert(
+                    new_name.clone().unwrap(),
+                    Player::from_serializable(player)?,
+                );
+
+                group.insert(new_name.unwrap());
+
+                Ok(())
+            };
+
+        for name in json.top_group {
+            handle_new_player(name, &mut state.top_group)?;
+        }
+
+        for (group_name, group) in json.groups {
+            let new_name = get_new_name(
+                "group".to_string(),
+                group_name,
+                &state.groups.keys().into_iter().collect(),
+            )?;
+
+            if let None = new_name {
+                continue;
+            }
+
+            let mut new_group = IndexSet::new();
+
+            for name in group {
+                handle_new_player(name, &mut new_group)?;
+            }
+
+            state.groups.insert(new_name.unwrap(), new_group);
+        }
+
+        show_selection(
+            state,
+            &state.top_group.clone().into_iter().collect(),
+            &state.groups.keys().cloned().collect(),
+        )?;
     }
     Ok(RespondResult {
         mutated: add_to_soundscape && perform_action,
