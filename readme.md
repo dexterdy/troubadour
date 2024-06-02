@@ -13,45 +13,85 @@ The project currently doesn't have a GUI, only a CLI, but it does have all the b
   - [x] volume
 - [x] loop sounds
   - [x] loop at the end of a sound
-  - [x] loops longer than sound length
-  - [x] loops shorter than sound length
+  - [x] loops longer than sound length (adds silence)
+  - [x] loops shorter than sound length (clips sound)
+  - [x] delay start (useful when you want a loop to start only later in the soundscape)
+  - [ ] set loop end (useful when you want a loop to stop after a certain time)
 - [x] clipping
   - [x] clip start
   - [x] clip end
-- [x] delay start (useful when you want a loop to start only later in the soundscape)
-- [ ] delay end (useful when you want a loop to stop after a certain time)
 - [ ] fades (this will be a simple toggle)
 - [x] save files
-  - [x] local save files (doesn't copy your mp3s)
-  - [ ] sharable save files (copies your mp3s)
+  - [x] local save files (doesn't copy your sound files)
+  - [ ] sharable save files (copies your sound files)
   - [x] add save file to current soundscape
-- [ ] sound grouping (apply commands to entire group at once)
+- [x] sound grouping (apply commands to entire group at once)
 - [ ] GUI
 
 ## Usage guide
 
 ```text
-$ --help
-dnd-player: A simple audio looping application for the creation of soundscapes.
+$ help
+troubadour: A simple audio looping application for the creation of soundscapes.
 
-Usage:
-        add -p <PATH> -n <NAME>         Will add a sound to the soundscape.
-        remove [IDs]                    Will remove a sound from the soundscape.
-        show [IDs]                      Will show the status of a sound.
-        play [IDs]
-        stop [IDs]
-        pause [IDs]
-        volume [IDs] -v <VOLUME>        Set volume as a percentage. Can be higher than 100%
-        loop [IDs] [-d <DURATION>]      Will loop at the end of the sound or the DURATION, if supplied.
-        unloop [IDs]                    Turns of looping for this sound.
-        set-start [IDs] -p <POS>        Clips the start of a sound by selecting the starting position.
-        set-end [IDs] [-p <POS>]        Clips the end of a sound by selecting the ending position. Reset by omitting POS.
-        delay [IDs] -d <DURATION>       Delays playing the sound after the play command. Useful in combination with  play-all.
-        help                            Shows this help message.
-        exit                            Exits the program.
+Usage: 
+
+        add -p <PATH> -n <NAME>
+                Adds a sound to the soundscape.
+
+        remove [IDs]
+                Removes sounds from the soundscape.
+
+        show [IDs] [-g <GROUPS>]
+                Shows the status and configuration of sounds.
+
+        play [IDs] [-g <GROUPS>]
+                Plays sounds.
+
+        stop [IDs] [-g <GROUPS>]
+                Stops sounds and resets the play heads to the start of each sound.
+
+        pause [IDs] [-g <GROUPS>]
+                Pauses sounds.
+
+        volume [IDs] [-g <GROUPS>] -v <VOLUME>
+                Sets the volume as a percentage. Can be higher than 100%
+
+        loop [IDs] [-g <GROUPS>] [-d <DURATION>]
+                Loops sounds at the end of their play length or DURATION, if supplied.
+
+        unloop [IDs] [-g <GROUPS>]
+                Turns of looping for these sounds.
+
+        set-start [IDs] [-g <GROUPS>] -p <POS>
+                Clips the start of sounds by selecting the starting position.
+
+        set-end [IDs] [-g <GROUPS>] [-p <POS>]
+                Clips the end of sounds by selecting the ending position. Reset by omitting POS.
+
+        delay [IDs] [-g <GROUPS>] -d <DURATION>
+                Delays playing the sound after the play command. Useful when you play multiple sounds at once.
+
+        group [IDs] -g <GROUP>
+                Adds sounds to a group. If the group doesn't exists yet, a new one will be made.
+
+        ungroup [IDs] -g <GROUP>
+                Removes sounds from a group. If the group is empty after this operation, it will be removed.
+
+        save -p <PATH>
+                Saves the current configuration to a file.
+
+        load -p <PATH>
+                Loads a saved configuration. You can choose to replace or add to current configuration.
+
+        help
+                Shows this help message.
+
+        exit
+                Exits the program.
 
 Note that:
         - [..] indicates an optional value.
         - Most commands will select the last added sound if ID is not supplied.
-        - ID can be a name, 'all', or an index. For instance: 'play horn', 'play all' or 'play 0'
+        - ID can be a name or 'all'. For instance: 'play horn' or 'play all'
 ```
