@@ -11,21 +11,21 @@ The project currently doesn't have a GUI, only a CLI, but it does have all the b
   - [x] pause
   - [x] stop
   - [x] volume
-- [x] loop sounds
+- [-] loop sounds
   - [x] loop at the end of a sound
-  - [x] loops longer than sound length
-  - [x] loops shorter than sound length
+  - [x] loops longer than sound length (adds silence)
+  - [x] loops shorter than sound length (clips sound)
+  - [x] delay start (useful when you want a loop to start only later in the soundscape)
+  - [ ] set loop end (useful when you want a loop to stop after a certain time)
 - [x] clipping
   - [x] clip start
   - [x] clip end
-- [x] delay start (useful when you want a loop to start only later in the soundscape)
-- [ ] delay end (useful when you want a loop to stop after a certain time)
 - [ ] fades (this will be a simple toggle)
-- [x] save files
-  - [x] local save files (doesn't copy your mp3s)
-  - [ ] sharable save files (copies your mp3s)
+- [-] save files
+  - [x] local save files (doesn't copy your sound files)
+  - [ ] sharable save files (copies your sound files)
   - [x] add save file to current soundscape
-- [ ] sound grouping (apply commands to entire group at once)
+- [x] sound grouping (apply commands to entire group at once)
 - [ ] GUI
 
 ## Usage guide
