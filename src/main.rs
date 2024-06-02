@@ -19,40 +19,49 @@ mod player;
 
 //TODO: Implement a sound length feature, based on amount samples
 //TODO: add fades toggle
-//TODO: implement grouping
-//FAR FUTURE: make a nice GUI
+//TODO: make a nice GUI
 //VERY FAR FUTURE: add a special mapping feature (dungeon vtt-esque)
 
 const ADD_USAGE: &str = "add -p <PATH> -n <NAME>";
 const REMOVE_USAGE: &str = "remove [IDs]";
-const SHOW_USAGE: &str = "show [IDs]";
-const PLAY_USAGE: &str = "play [IDs]";
-const STOP_USAGE: &str = "stop [IDs]";
-const PAUSE_USAGE: &str = "pause [IDs]";
-const VOLUME_USAGE: &str = "volume [IDs] -v <VOLUME>";
-const LOOP_USAGE: &str = "loop [IDs] [-d <DURATION>]";
-const UNLOOP_USAGE: &str = "unloop [IDs]";
-const SET_START_USAGE: &str = "set-start [IDs] -p <POS>";
-const SET_END_USAGE: &str = "set-end [IDs] [-p <POS>]";
-const DELAY_USAGE: &str = "delay [IDs] -d <DURATION>";
+const SHOW_USAGE: &str = "show [IDs] [-g <GROUPS>]";
+const PLAY_USAGE: &str = "play [IDs] [-g <GROUPS>]";
+const STOP_USAGE: &str = "stop [IDs] [-g <GROUPS>]";
+const PAUSE_USAGE: &str = "pause [IDs] [-g <GROUPS>]";
+const VOLUME_USAGE: &str = "volume [IDs] [-g <GROUPS>] -v <VOLUME>";
+const LOOP_USAGE: &str = "loop [IDs] [-g <GROUPS>] [-d <DURATION>]";
+const UNLOOP_USAGE: &str = "unloop [IDs] [-g <GROUPS>]";
+const SET_START_USAGE: &str = "set-start [IDs] [-g <GROUPS>] -p <POS>";
+const SET_END_USAGE: &str = "set-end [IDs] [-g <GROUPS>] [-p <POS>]";
+const DELAY_USAGE: &str = "delay [IDs] [-g <GROUPS>] -d <DURATION>";
+const GROUP_USAGE: &str = "group [IDs] -g <GROUP>";
+const UNGROUP_USAGE: &str = "ungroup [IDs] -g <GROUP>";
 const SAVE_USAGE: &str = "save -p <PATH>";
 const LOAD_USAGE: &str = "load -p <PATH>";
 
 const NO_ID_ADDENDUM: &str = "When called without ID, this will select the last added sound.";
 
-const ABOUT_ADD: &str = "Will add a sound to the soundscape.";
-const ABOUT_ADD_LONG: &str = "Will add a sound to the soundscape. Added sounds will not start playing until you call play [ID].";
-const ABOUT_REMOVE: &str = "Will remove a sound from the soundscape.";
-const ABOUT_VOLUME: &str = "Set volume as a percentage. Can be higher than 100%";
-const ABOUT_SHOW: &str = "Will show the status of a sound.";
-const ABOUT_LOOP: &str = "Will loop at the end of the sound or the DURATION, if supplied.";
-const ABOUT_LOOP_LONG: &str = "Will loop at the end of the sound or the DURATION, if supplied. DURATION can be longer than the sound length.";
-const ABOUT_UNLOOP: &str = "Turns of looping for this sound.";
-const ABOUT_SET_START: &str = "Clips the start of a sound by selecting the starting position.";
+const ABOUT_ADD: &str = "Adds a sound to the soundscape.";
+const ABOUT_ADD_LONG: &str =
+    "Adds a sound to the soundscape. Added sounds will not start playing until you call play.";
+const ABOUT_REMOVE: &str = "Removes sounds from the soundscape.";
+const ABOUT_VOLUME: &str = "Sets the volume as a percentage. Can be higher than 100%";
+const ABOUT_SHOW: &str = "Shows the status and configuration of sounds.";
+const ABOUT_PLAY: &str = "Plays sounds.";
+const ABOUT_STOP: &str = "Stops sounds and resets the play heads to the start of each sound.";
+const ABOUT_PAUSE: &str = "Pauses sounds.";
+const ABOUT_LOOP: &str = "Loops sounds at the end of their play length or DURATION, if supplied.";
+const ABOUT_LOOP_LONG: &str = "Loops sounds the end of their play length or the DURATION, if supplied. DURATION can be longer than the sounds lengths.";
+const ABOUT_UNLOOP: &str = "Turns of looping for these sounds.";
+const ABOUT_SET_START: &str = "Clips the start of sounds by selecting the starting position.";
 const ABOUT_SET_END: &str =
-    "Clips the end of a sound by selecting the ending position. Reset by omitting POS.";
+    "Clips the end of sounds by selecting the ending position. Reset by omitting POS.";
 const ABOUT_DELAY: &str =
-    "Delays playing the sound after the play command. Useful in combination with  play-all.";
+    "Delays playing the sound after the play command. Useful when you play multiple sounds at once.";
+const ABOUT_GROUP: &str =
+    "Adds sounds to a group. If the group doesn't exists yet, a new one will be made.";
+const ABOUT_UNGROUP: &str =
+    "Removes sounds from a group. If the group is empty after this operation, it will be removed.";
 const ABOUT_SAVE: &str = "Saves the current configuration to a file.";
 const ABOUT_LOAD: &str =
     "Loads a saved configuration. You can choose to replace or add to current configuration.";
@@ -61,27 +70,46 @@ const ABOUT_EXIT: &str = "Exits the program.";
 
 const USAGE: &str = formatcp!(
     "
-\t{ADD_USAGE}\t\t{ABOUT_ADD}
-\t{REMOVE_USAGE}\t\t\t{ABOUT_REMOVE}
-\t{SHOW_USAGE}\t\t\t{ABOUT_SHOW}
-\t{PLAY_USAGE}
-\t{STOP_USAGE}
-\t{PAUSE_USAGE}
-\t{VOLUME_USAGE}\t{ABOUT_VOLUME}
-\t{LOOP_USAGE}\t{ABOUT_LOOP}
-\t{UNLOOP_USAGE}\t\t\t{ABOUT_UNLOOP}
-\t{SET_START_USAGE}\t{ABOUT_SET_START}
-\t{SET_END_USAGE}\t{ABOUT_SET_END}
-\t{DELAY_USAGE}\t{ABOUT_DELAY}
-\t{SAVE_USAGE}\t\t\t{ABOUT_SAVE}
-\t{LOAD_USAGE}\t\t\t{ABOUT_LOAD}
-\thelp\t\t\t\t{ABOUT_HELP}
-\texit\t\t\t\t{ABOUT_EXIT}
+\t{ADD_USAGE}\n\t\t{ABOUT_ADD}
+
+\t{REMOVE_USAGE}\n\t\t{ABOUT_REMOVE}
+
+\t{SHOW_USAGE}\n\t\t{ABOUT_SHOW}
+
+\t{PLAY_USAGE}\n\t\t{ABOUT_PLAY}
+
+\t{STOP_USAGE}\n\t\t{ABOUT_STOP}
+
+\t{PAUSE_USAGE}\n\t\t{ABOUT_PAUSE}
+
+\t{VOLUME_USAGE}\n\t\t{ABOUT_VOLUME}
+
+\t{LOOP_USAGE}\n\t\t{ABOUT_LOOP}
+
+\t{UNLOOP_USAGE}\n\t\t{ABOUT_UNLOOP}
+
+\t{SET_START_USAGE}\n\t\t{ABOUT_SET_START}
+
+\t{SET_END_USAGE}\n\t\t{ABOUT_SET_END}
+
+\t{DELAY_USAGE}\n\t\t{ABOUT_DELAY}
+
+\t{GROUP_USAGE}\n\t\t{ABOUT_GROUP}
+
+\t{UNGROUP_USAGE}\n\t\t{ABOUT_UNGROUP}
+
+\t{SAVE_USAGE}\n\t\t{ABOUT_SAVE}
+
+\t{LOAD_USAGE}\n\t\t{ABOUT_LOAD}
+
+\thelp\n\t\t{ABOUT_HELP}
+
+\texit\n\t\t{ABOUT_EXIT}
 
 Note that:
 \t- [..] indicates an optional value.
 \t- Most commands will select the last added sound if ID is not supplied.
-\t- ID can be a name, a group name or 'all'. For instance: 'play horn', 'play ensemble' or 'play all'\
+\t- ID can be a name or 'all'. For instance: 'play horn' or 'play all'\
 "
 );
 
@@ -117,23 +145,23 @@ build! {
         #[arg(long, short)]
         name: String
     },
-    #[command(override_usage=REMOVE_USAGE, about=format!("{ABOUT_REMOVE} {NO_ID_ADDENDUM}"))]
+    #[command(override_usage=REMOVE_USAGE, about=ABOUT_REMOVE)]
     Remove {
         ids: Vec<String>,
     },
-    #[command(override_usage=PLAY_USAGE, about=NO_ID_ADDENDUM)]
+    #[command(override_usage=PLAY_USAGE, about=format!("{ABOUT_PLAY} {NO_ID_ADDENDUM}"))]
     Play {
         ids: Vec<String>,
         #[arg(long, short)]
         groups: Vec<String>
     },
-    #[command(override_usage=STOP_USAGE, about=NO_ID_ADDENDUM)]
+    #[command(override_usage=STOP_USAGE, about=format!("{ABOUT_STOP} {NO_ID_ADDENDUM}"))]
     Stop {
         ids: Vec<String>,
         #[arg(long, short)]
         groups: Vec<String>
     },
-    #[command(override_usage=PAUSE_USAGE, about=NO_ID_ADDENDUM)]
+    #[command(override_usage=PAUSE_USAGE, about=format!("{ABOUT_PAUSE} {NO_ID_ADDENDUM}"))]
     Pause {
         ids: Vec<String>,
         #[arg(long, short)]
@@ -191,22 +219,24 @@ build! {
         #[arg(long, short)]
         groups: Vec<String>
     },
+    #[command(override_usage=GROUP_USAGE, about=ABOUT_GROUP)]
     Group {
         #[arg(long, short)]
         group: String,
         ids: Vec<String>,
     },
+    #[command(override_usage=UNGROUP_USAGE, about=ABOUT_UNGROUP)]
     Ungroup {
         #[arg(long, short)]
         group: String,
         ids: Vec<String>,
     },
-    #[command(override_usage=SAVE_USAGE, about=format!("{ABOUT_SAVE}"))]
+    #[command(override_usage=SAVE_USAGE, about=ABOUT_SAVE)]
     Save {
         #[arg(long, short)]
         path: PathBuf,
     },
-    #[command(override_usage=LOAD_USAGE, about=format!("{ABOUT_LOAD}"))]
+    #[command(override_usage=LOAD_USAGE, about=ABOUT_LOAD)]
     Load {
         #[arg(long, short)]
         path: PathBuf,
