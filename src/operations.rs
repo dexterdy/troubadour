@@ -90,23 +90,54 @@ fn show_selection(
     group_ids: &Vec<String>,
 ) -> Result<(), Error> {
     validate_selection(state, ids, group_ids)?;
+    let mut selected_top_group = IndexSet::new();
+    let mut selected_groups = IndexMap::new();
     if ids.len() == 1 && ids[0].to_lowercase() == "all" {
-        for id in &state.top_group {
-            println!("{}", state.players.get(id).ok_or(Error::msg("error: internal reference to player that does not exist. This is a bug. Contact the developer"))?.to_string());
-        }
+        selected_top_group.extend(&state.top_group);
+        selected_groups.extend(
+            state
+                .groups
+                .iter()
+                .map(|(k, v)| (k, v.iter().collect()))
+                .collect::<IndexMap<&String, IndexSet<&String>>>(),
+        );
     } else {
         for id in ids {
-            println!("{}", state.players.get(id).ok_or(Error::msg("error: internal reference to player that does not exist. This is a bug. Contact the developer"))?.to_string());
+            let player = state.players.get(id).unwrap();
+            if let Some(group_name) = &player.group {
+                if let Some(group) = selected_groups.get_mut(group_name) {
+                    group.insert(id);
+                } else {
+                    let mut new_group = IndexSet::new();
+                    new_group.insert(id);
+                    selected_groups.insert(group_name, new_group);
+                }
+            } else {
+                selected_top_group.insert(id);
+            }
+        }
+        for group_id in group_ids {
+            selected_groups.insert(
+                group_id,
+                state.groups.get(group_id).unwrap().iter().collect(),
+            );
         }
     }
-    for group_id in group_ids {
-        println!("\n{}\n", group_id);
-        for id in state.groups.get(group_id).unwrap() {
-            println!("{}", state.players.get(id).ok_or(Error::msg("error: internal reference to player that does not exist. This is a bug. Contact the developer"))?.to_string());
+    let print_player = |id: &String| -> Result<(), Error> {
+        println!("{}", state.players.get(id).ok_or(Error::msg("error: internal reference to player that does not exist. This is a bug. Contact the developer"))?.to_string());
+        Ok(())
+    };
+    for id in selected_top_group {
+        print_player(id)?;
+    }
+    for (group_name, group) in selected_groups {
+        println!("\n{}\n", group_name);
+        for id in group {
+            print_player(id)?;
         }
     }
     if ids.len() == 0 && group_ids.len() == 0 && state.top_group.len() > 0 {
-        println!("{}", state.players.get(state.top_group.last().unwrap()).ok_or(Error::msg("error: internal reference to player that does not exist. This is a bug. Contact the developer"))?.to_string());
+        print_player(state.top_group.last().unwrap())?;
     }
     Ok(())
 }
@@ -345,6 +376,18 @@ pub fn delay(
 
 pub fn group(state: &mut AppState, name: String, ids: Vec<String>) -> Result<RespondResult, Error> {
     validate_selection(state, &ids, &vec![])?;
+    for id in &ids {
+        state.top_group.shift_remove(id);
+        let player = state.players.get_mut(id).unwrap();
+        if let Some(group) = &player.group {
+            state
+                .groups
+                .get_mut(group)
+                .ok_or(Error::msg("error: player carries reference to non-existent group. This is a bug. Contact the developer"))?
+                .shift_remove(id);
+        }
+        player.group = Some(name.clone());
+    }
     if state.groups.contains_key(&name) {
         let group = state.groups.get_mut(&name).unwrap();
         group.extend(ids);
@@ -378,9 +421,14 @@ pub fn ungroup(
     if ids.len() == group.len() {
         state.groups.shift_remove(&name);
     } else {
-        for id in ids {
-            group.shift_remove(&id);
+        for id in &ids {
+            group.shift_remove(id);
         }
+    }
+    for id in &ids {
+        let player = state.players.get_mut(id).unwrap();
+        player.group = None;
+        state.top_group.insert(id.clone());
     }
     Ok(RespondResult {
         mutated: true,
@@ -421,8 +469,8 @@ pub fn load(
     path: &Path,
     has_been_saved: bool,
 ) -> Result<RespondResult, Error> {
-    let add_to_soundscape = state.players.is_empty()
-        || get_confirmation("Do you want to add this to you current soundscape?")?;
+    let add_to_soundscape = !state.players.is_empty()
+        && get_confirmation("Do you want to add this to you current soundscape?")?;
     let perform_action = add_to_soundscape
         || has_been_saved
         || get_confirmation("Are you sure you want to overwrite this soundscape without saving?")?;

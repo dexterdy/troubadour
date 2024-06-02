@@ -21,6 +21,7 @@ use crate::readline;
 pub struct Serializable {
     media: PathBuf,
     name: String,
+    group: Option<String>,
     volume: u32,
     looping: bool,
     loop_length: Option<Duration>,
@@ -38,6 +39,7 @@ pub struct Player {
     last_time_poll: Option<Instant>,
     time_at_last_poll: Duration,
     pub name: String,
+    pub group: Option<String>,
     playing: bool,
     paused: bool,
     volume: u32,
@@ -153,6 +155,7 @@ impl Player {
         let (file, media) = file_user_fallback(media, &name)?;
         Ok(Self {
             name,
+            group: None,
             media,
             file_handle: RefCell::new(file),
             playing: false,
@@ -174,6 +177,7 @@ impl Player {
     pub fn to_serializable(&self) -> Serializable {
         Serializable {
             name: self.name.clone(),
+            group: self.group.clone(),
             media: self.media.clone(),
             volume: self.volume,
             looping: self.looping,
@@ -189,6 +193,7 @@ impl Player {
         let (file, media) = file_user_fallback(player.media.clone(), &player.name)?;
         let mut new_player = Self {
             name: player.name.clone(),
+            group: player.group.clone(),
             media,
             file_handle: RefCell::new(file),
             playing: false,
