@@ -260,16 +260,12 @@ under the conditions of the GPL v3."
 
     let mut rl = DefaultEditor::new().expect("error: could not get access to the stdin.");
 
-    let mut state = AppState {
-        players: HashMap::new(),
-        top_group: IndexSet::new(),
-        groups: IndexMap::new(),
-    };
-
     let mut has_been_saved = true;
 
     loop {
         let mut should_quit = false;
+
+        let mut state = AppState::new();
 
         let response = readline("$ ".to_string(), &mut rl).and_then(|line| {
             let line = line.trim();
@@ -324,8 +320,10 @@ fn respond(state: &mut AppState, line: &str) -> Result<InternalRespondResult, Er
     })?;
     let matches = Commands::try_parse_from(args)?;
     match matches {
+        // TODO: handle filesystem errors
         Commands::Add { path, name } => Ok(to_internal(state.add(path, name)?)),
-        Commands::Remove { ids } => Ok(to_internal(state.remove(&ids)?)), // TODO: get confirmation
+        // TODO: get confirmation
+        Commands::Remove { ids } => Ok(to_internal(state.remove(&ids)?)),
         Commands::Play { ids, groups } => {
             let res = Ok(to_internal(state.play(&ids, &groups)?));
             show_selection(state, &ids, &groups)?;
@@ -404,8 +402,23 @@ fn respond(state: &mut AppState, line: &str) -> Result<InternalRespondResult, Er
             ids,
         } => Ok(to_internal(state.group(group_name, &ids)?)),
         Commands::Ungroup { group, ids } => Ok(to_internal(state.ungroup(group, &ids)?)),
+        // TODO: handle filesystem errors
         Commands::Save { path } => Ok(to_internal(state.save(&path)?)),
-        Commands::Load { path } => Ok(to_internal(state.load(&path, true)?)),
+        // TODO: option to combine workspaces
+        // TODO: conflict resolution (overwrite, skip, rename)
+        // TODO: get confirmation for overwriting unsaved space
+        // TODO: handle filesystem errors (save/media files)
+        Commands::Load { path } => {
+            let new = AppState::load(&path)?;
+            state.players = new.players;
+            state.top_group = new.top_group;
+            state.groups = new.groups;
+            Ok(InternalRespondResult {
+                saved: false,
+                mutated: true,
+                quit: false,
+            })
+        }
         Commands::Exit => Ok(InternalRespondResult {
             saved: false,
             mutated: false,

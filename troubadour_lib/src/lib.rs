@@ -31,6 +31,14 @@ struct SerializableAppself {
 }
 
 impl AppState {
+    pub fn new() -> Self {
+        AppState {
+            players: HashMap::new(),
+            top_group: IndexSet::new(),
+            groups: IndexMap::new(),
+        }
+    }
+
     pub fn add(&mut self, path: PathBuf, name: String) -> Result<RespondResult, Error> {
         if &name.to_lowercase() == "all" {
             return Err(Error::msg(
@@ -290,20 +298,16 @@ impl AppState {
         })
     }
 
-    pub fn load(&mut self, path: &Path, add_to_soundscape: bool) -> Result<RespondResult, Error> {
+    pub fn load(path: &Path) -> Result<AppState, Error> {
         let json: SerializableAppself = serde_json::from_reader(File::open(path)?)?;
 
-        if !add_to_soundscape {
-            self.players.clear();
-            self.top_group.clear();
-            self.groups.clear();
-        }
+        let mut new = Self::new();
 
         let mut handle_new_player =
             |name: String, group: &mut IndexSet<String>| -> Result<(), Error> {
                 let player = json.players.get(&name).unwrap();
 
-                self.players
+                new.players
                     .insert(name.clone(), Player::from_serializable(player)?);
 
                 group.insert(name.clone());
@@ -312,7 +316,7 @@ impl AppState {
             };
 
         for name in json.top_group {
-            handle_new_player(name, &mut self.top_group)?;
+            handle_new_player(name, &mut new.top_group)?;
         }
 
         for (group_name, group) in json.groups {
@@ -322,13 +326,10 @@ impl AppState {
                 handle_new_player(name, &mut new_group)?;
             }
 
-            self.groups.insert(group_name.clone(), new_group);
+            new.groups.insert(group_name.clone(), new_group);
         }
 
-        Ok(RespondResult {
-            mutated: true,
-            saved: false,
-        })
+        Ok(new)
     }
 }
 
