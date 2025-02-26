@@ -1,21 +1,16 @@
 use anyhow::Error;
 use clap::Parser;
 use const_format::formatcp;
+use duration_human::DurationHuman;
+use fomat_macros::fomat;
 use indexmap::{IndexMap, IndexSet};
-use operations::{
-    add, delay, exit, group, load, pause, play, remove, save, set_end, set_start, set_volume, show,
-    stop, toggle_loop, ungroup, unloop, RespondResult,
-};
-use player::Player;
 use rustyline::error::ReadlineError;
 use rustyline::history::FileHistory;
 use rustyline::{DefaultEditor, Editor};
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::{path::PathBuf, time::Duration};
-
-mod operations;
-mod player;
+use troubadour_lib::player::Player;
+use troubadour_lib::{AppState, RespondResult};
 
 //TODO: Implement a sound length feature, based on amount samples
 //TODO: add fades toggle
@@ -249,14 +244,10 @@ fn parse_duration(dur: &str) -> Result<Duration, Error> {
     Ok(duration_str::parse(dur)?)
 }
 
-// FIXME: this only works if the app stays single threaded. Also, when I write the GUI version, this should probably be refactored.
-// additionally, It prevents any debugger from working;
-thread_local! {static READLINE: RefCell<Editor<(), FileHistory>> = RefCell::new(DefaultEditor::new().expect("error: could not get access to the stdin."))}
-
-pub struct AppState {
-    pub players: HashMap<String, Player>,
-    pub top_group: IndexSet<String>,
-    pub groups: IndexMap<String, IndexSet<String>>,
+struct InternalRespondResult {
+    saved: bool,
+    mutated: bool,
+    quit: bool,
 }
 
 fn main() -> Result<(), String> {
@@ -266,6 +257,8 @@ This program comes with ABSOLUTELY NO WARRANTY.
 This is free software, and you are welcome to redistribute it
 under the conditions of the GPL v3."
     );
+
+    let mut rl = DefaultEditor::new().expect("error: could not get access to the stdin.");
 
     let mut state = AppState {
         players: HashMap::new(),
@@ -278,13 +271,13 @@ under the conditions of the GPL v3."
     loop {
         let mut should_quit = false;
 
-        let response = readline("$ ").and_then(|line| {
+        let response = readline("$ ".to_string(), &mut rl).and_then(|line| {
             let line = line.trim();
-            respond(&mut state, &line, has_been_saved)
+            respond(&mut state, &line)
         });
 
         match response {
-            Ok(RespondResult {
+            Ok(InternalRespondResult {
                 saved,
                 mutated,
                 quit,
@@ -301,13 +294,16 @@ under the conditions of the GPL v3."
 
         if should_quit {
             let quit = has_been_saved
-                || get_confirmation("Are you sure you want to exit without saving?")
-                    .unwrap_or_else(|e| {
-                        matches!(
-                            e.downcast::<ReadlineError>(),
-                            Ok(ReadlineError::Interrupted)
-                        )
-                    });
+                || get_confirmation(
+                    "Are you sure you want to exit without saving?".to_string(),
+                    &mut rl,
+                )
+                .unwrap_or_else(|e| {
+                    matches!(
+                        e.downcast::<ReadlineError>(),
+                        Ok(ReadlineError::Interrupted)
+                    )
+                });
             if quit {
                 break Ok(());
             }
@@ -315,9 +311,9 @@ under the conditions of the GPL v3."
     }
 }
 
-fn respond(state: &mut AppState, line: &str, has_been_saved: bool) -> Result<RespondResult, Error> {
+fn respond(state: &mut AppState, line: &str) -> Result<InternalRespondResult, Error> {
     if line.is_empty() {
-        return Ok(RespondResult {
+        return Ok(InternalRespondResult {
             saved: false,
             mutated: false,
             quit: false,
@@ -328,70 +324,123 @@ fn respond(state: &mut AppState, line: &str, has_been_saved: bool) -> Result<Res
     })?;
     let matches = Commands::try_parse_from(args)?;
     match matches {
-        Commands::Add { path, name } => add(state, path, name),
-        Commands::Remove { ids } => remove(state, ids),
-        Commands::Play { ids, groups } => play(state, ids, groups),
-        Commands::Stop { ids, groups } => stop(state, ids, groups),
-        Commands::Pause { ids, groups } => pause(state, ids, groups),
+        Commands::Add { path, name } => Ok(to_internal(state.add(path, name)?)),
+        Commands::Remove { ids } => Ok(to_internal(state.remove(&ids)?)), // TODO: get confirmation
+        Commands::Play { ids, groups } => {
+            let res = Ok(to_internal(state.play(&ids, &groups)?));
+            show_selection(state, &ids, &groups)?;
+            res
+        }
+        Commands::Stop { ids, groups } => {
+            let res = Ok(to_internal(state.stop(&ids, &groups)?));
+            show_selection(state, &ids, &groups)?;
+            res
+        }
+        Commands::Pause { ids, groups } => {
+            let res = Ok(to_internal(state.pause(&ids, &groups)?));
+            show_selection(state, &ids, &groups)?;
+            res
+        }
         Commands::Volume {
             ids,
             groups,
             volume,
-        } => set_volume(state, ids, groups, volume),
-        Commands::Show { ids, groups } => show(state, ids, groups),
+        } => {
+            let res = Ok(to_internal(state.set_volume(&ids, &groups, volume)?));
+            show_selection(state, &ids, &groups)?;
+            res
+        }
+        Commands::Show { ids, groups } => {
+            show_selection(state, &ids, &groups)?;
+            Ok(InternalRespondResult {
+                saved: false,
+                mutated: false,
+                quit: false,
+            })
+        }
         Commands::Loop {
             ids,
             groups,
             duration,
-        } => toggle_loop(state, ids, groups, duration),
-        Commands::Unloop { ids, groups } => unloop(state, ids, groups),
+        } => {
+            let res = Ok(to_internal(state.toggle_loop(&ids, &groups, duration)?));
+            show_selection(state, &ids, &groups)?;
+            res
+        }
+        Commands::Unloop { ids, groups } => {
+            let res = Ok(to_internal(state.unloop(&ids, &groups)?));
+            show_selection(state, &ids, &groups)?;
+            res
+        }
         Commands::SetStart {
             ids,
             groups,
             pos: duration,
-        } => set_start(state, ids, groups, duration),
+        } => {
+            let res = Ok(to_internal(state.set_start(&ids, &groups, duration)?));
+            show_selection(state, &ids, &groups)?;
+            res
+        }
         Commands::SetEnd {
             ids,
             groups,
             pos: duration,
-        } => set_end(state, ids, groups, duration),
+        } => {
+            let res = Ok(to_internal(state.set_end(&ids, &groups, duration)?));
+            show_selection(state, &ids, &groups)?;
+            res
+        }
         Commands::Delay {
             ids,
             groups,
             duration,
-        } => delay(state, ids, groups, duration),
+        } => {
+            let res = Ok(to_internal(state.delay(&ids, &groups, duration)?));
+            show_selection(state, &ids, &groups)?;
+            res
+        }
         Commands::Group {
             group: group_name,
             ids,
-        } => group(state, group_name, ids),
-        Commands::Ungroup { group, ids } => ungroup(state, group, ids),
-        Commands::Save { path } => save(state, &path),
-        Commands::Load { path } => load(state, &path, has_been_saved),
-        Commands::Exit => exit(),
+        } => Ok(to_internal(state.group(group_name, &ids)?)),
+        Commands::Ungroup { group, ids } => Ok(to_internal(state.ungroup(group, &ids)?)),
+        Commands::Save { path } => Ok(to_internal(state.save(&path)?)),
+        Commands::Load { path } => Ok(to_internal(state.load(&path, true)?)),
+        Commands::Exit => Ok(InternalRespondResult {
+            saved: false,
+            mutated: false,
+            quit: true,
+        }),
     }
 }
 
-pub fn readline(prompt: &str) -> Result<String, Error> {
-    READLINE.with_borrow_mut(|rl| {
-        let line = rl.readline(prompt);
-        match line {
-            Ok(line) => {
-                rl.add_history_entry(line.as_str()).unwrap_or_default();
-                Ok(line)
-            }
-            Err(ReadlineError::Eof) => Err(Error::msg("error: unexpected EOF.")),
-            Err(ReadlineError::WindowResized) => readline(prompt),
-            Err(ReadlineError::Interrupted) => Ok(line?),
-            _ => Err(Error::msg("error: could not read from stdin")),
-        }
-    })
+fn to_internal(base: RespondResult) -> InternalRespondResult {
+    InternalRespondResult {
+        saved: base.saved,
+        mutated: base.mutated,
+        quit: false,
+    }
 }
 
-fn get_confirmation(prompt: &str) -> Result<bool, Error> {
+pub fn readline(prompt: String, rl: &mut Editor<(), FileHistory>) -> Result<String, Error> {
+    let line = rl.readline(&prompt);
+    match line {
+        Ok(line) => {
+            rl.add_history_entry(line.as_str()).unwrap_or_default();
+            Ok(line)
+        }
+        Err(ReadlineError::Eof) => Err(Error::msg("error: unexpected EOF.")),
+        Err(ReadlineError::WindowResized) => readline(prompt, rl),
+        Err(ReadlineError::Interrupted) => Ok(line?),
+        _ => Err(Error::msg("error: could not read from stdin")),
+    }
+}
+
+fn get_confirmation(prompt: String, rl: &mut Editor<(), FileHistory>) -> Result<bool, Error> {
     let mut result = None;
 
     while result.is_none() {
-        let response = readline(format!("{prompt} Y/N: ").as_str())
+        let response = readline(format!("{prompt} Y/N: "), rl)
             .map_err(Error::msg)?
             .trim()
             .to_lowercase();
@@ -405,20 +454,130 @@ fn get_confirmation(prompt: &str) -> Result<bool, Error> {
     Ok(result.unwrap())
 }
 
-fn get_option(prompt: &str, valid_options: Vec<&str>) -> Result<String, Error> {
+fn get_option(
+    prompt: String,
+    valid_options: Vec<String>,
+    rl: &mut Editor<(), FileHistory>,
+) -> Result<String, Error> {
     let mut result = None;
 
     while result.is_none() {
-        let response = readline(format!("{prompt}: ").as_str())
+        let response = readline(format!("{prompt}: "), rl)
             .map_err(Error::msg)?
             .trim()
             .to_lowercase();
 
-        if !valid_options.contains(&response.as_str()) {
+        if !valid_options.contains(&response) {
             println!("{} is not a valid valid answer.", response);
             continue;
         }
         result = Some(response);
     }
     Ok(result.unwrap())
+}
+
+fn duration_to_string(dur: Duration, no_smaller_than_secs: bool) -> String {
+    let nanos = if no_smaller_than_secs {
+        dur.as_secs() * 1_000_000_000
+    } else {
+        dur.as_nanos() as u64
+    };
+    if nanos == 0 {
+        "0s".to_string()
+    } else {
+        format!("{:#}", DurationHuman::from(nanos))
+    }
+}
+
+fn player_to_string(player: &Player) -> String {
+    fomat!(
+        (player.name) ":"
+        if player.get_is_playing() {
+            "\n\tplaying"
+        } else {
+            if player.get_is_paused() {
+                "\n\tpaused"
+            } else {
+                "\n\tnot playing"
+            }
+        }
+        if player.get_is_playing() || player.get_is_paused() {
+            "\n\thas been playing for: " (duration_to_string(player.get_play_time(), true))
+        }
+        "\n\tvolume: " (player.volume) "%"
+        if player.looping {
+            "\n\tloops"
+            if let Some(length) = player.loop_length {
+                ": every " (duration_to_string(length, false))
+            }
+        }
+        if player.skip_length > Duration::new(0, 0) {
+            "\n\tstarts at: " (duration_to_string(player.skip_length, false))
+        }
+        if let Some(length) = player.take_length {
+            if length > Duration::new(0, 0) {
+                "\n\tends at: " (duration_to_string(length, false))
+            }
+        }
+        if player.delay_length > Duration::new(0, 0) {
+            "\n\tdelay: "  (duration_to_string(player.delay_length, false))
+        }
+    )
+}
+
+fn show_selection(
+    state: &AppState,
+    ids: &Vec<String>,
+    group_ids: &Vec<String>,
+) -> Result<(), Error> {
+    let mut selected_top_group = IndexSet::new();
+    let mut selected_groups = IndexMap::new();
+    if ids.len() == 1 && ids[0].to_lowercase() == "all" {
+        selected_top_group.extend(&state.top_group);
+        selected_groups.extend(
+            state
+                .groups
+                .iter()
+                .map(|(k, v)| (k, v.iter().collect()))
+                .collect::<IndexMap<&String, IndexSet<&String>>>(),
+        );
+    } else {
+        for id in ids {
+            let player = state.players.get(id).unwrap();
+            if let Some(group_name) = &player.group {
+                if let Some(group) = selected_groups.get_mut(group_name) {
+                    group.insert(id);
+                } else {
+                    let mut new_group = IndexSet::new();
+                    new_group.insert(id);
+                    selected_groups.insert(group_name, new_group);
+                }
+            } else {
+                selected_top_group.insert(id);
+            }
+        }
+        for group_id in group_ids {
+            selected_groups.insert(
+                group_id,
+                state.groups.get(group_id).unwrap().iter().collect(),
+            );
+        }
+    }
+    let print_player = |id: &String| -> Result<(), Error> {
+        println!("{}", player_to_string(state.players.get(id).ok_or(Error::msg("error: internal reference to player that does not exist. This is a bug. Contact the developer"))?));
+        Ok(())
+    };
+    for id in selected_top_group {
+        print_player(id)?;
+    }
+    for (group_name, group) in selected_groups {
+        println!("\n{}\n", group_name);
+        for id in group {
+            print_player(id)?;
+        }
+    }
+    if ids.len() == 0 && group_ids.len() == 0 && state.top_group.len() > 0 {
+        print_player(state.top_group.last().unwrap())?;
+    }
+    Ok(())
 }

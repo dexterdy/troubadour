@@ -1,9 +1,6 @@
 #![allow(dead_code)]
 
 use anyhow::Error;
-use clap::Parser;
-use duration_human::DurationHuman;
-use fomat_macros::fomat;
 use paste::item;
 use rodio::{source::Zero, Decoder, OutputStream, OutputStreamHandle, Sink, Source};
 use serde::{Deserialize, Serialize};
@@ -14,8 +11,6 @@ use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
-
-use crate::readline;
 
 #[derive(Serialize, Deserialize)]
 pub struct Serializable {
@@ -40,14 +35,14 @@ pub struct Player {
     time_at_last_poll: Duration,
     pub name: String,
     pub group: Option<String>,
-    playing: bool,
-    paused: bool,
-    volume: u32,
-    looping: bool,
-    loop_length: Option<Duration>,
-    delay_length: Duration,
-    take_length: Option<Duration>,
-    skip_length: Duration,
+    pub playing: bool,
+    pub paused: bool,
+    pub volume: u32,
+    pub looping: bool,
+    pub loop_length: Option<Duration>,
+    pub delay_length: Duration,
+    pub take_length: Option<Duration>,
+    pub skip_length: Duration,
 }
 
 macro_rules! optional {
@@ -110,49 +105,49 @@ fn convert_file_error(path: &Path, err: &io::Error) -> Error {
     }
 }
 
-#[derive(Debug, Parser)]
-#[command(no_binary_name = true, allow_missing_positional = true)]
-struct FileLocation {
-    path: Option<PathBuf>,
-}
+// #[derive(Debug, Parser)]
+// #[command(no_binary_name = true, allow_missing_positional = true)]
+// struct FileLocation {
+//     path: Option<PathBuf>,
+// }
 
-fn file_user_fallback(mut path: PathBuf, name: &String) -> Result<(File, PathBuf), Error> {
-    loop {
-        let file = File::open(&path).map_err(|err| convert_file_error(&path, &err));
-        if let Err(err) = file {
-            println!("{err}");
-            path = loop {
-                let new_path = readline(&format!(
-                    "Type in new path for {name} (leave empty to skip): "
-                ))
-                .and_then(|line| {
-                    shlex::split(&line).ok_or_else(|| {
-                        Error::msg(
-                            "error: cannot parse input. Perhaps you have erronous quotation(\"\")?",
-                        )
-                    })
-                })
-                .and_then(|line| {
-                    FileLocation::try_parse_from(line).map_err(|e| Error::msg(e.to_string()))
-                });
-                if let Err(err) = new_path {
-                    println!("{err}");
-                } else if matches!(new_path, Ok(FileLocation { path: None })) {
-                    return Err(Error::msg(format!("Skipping {name}")));
-                } else {
-                    break new_path.unwrap().path.unwrap();
-                }
-            };
-        } else {
-            break Ok((file.unwrap(), path));
-        }
-    }
-}
+// fn file_user_fallback(mut path: PathBuf, name: &String) -> Result<(File, PathBuf), Error> {
+//     loop {
+//         let file = File::open(&path).map_err(|err| convert_file_error(&path, &err));
+//         if let Err(err) = file {
+//             println!("{err}");
+//             path = loop {
+//                 let new_path = readline(&format!(
+//                     "Type in new path for {name} (leave empty to skip): "
+//                 ))
+//                 .and_then(|line| {
+//                     shlex::split(&line).ok_or_else(|| {
+//                         Error::msg(
+//                             "error: cannot parse input. Perhaps you have erronous quotation(\"\")?",
+//                         )
+//                     })
+//                 })
+//                 .and_then(|line| {
+//                     FileLocation::try_parse_from(line).map_err(|e| Error::msg(e.to_string()))
+//                 });
+//                 if let Err(err) = new_path {
+//                     println!("{err}");
+//                 } else if matches!(new_path, Ok(FileLocation { path: None })) {
+//                     return Err(Error::msg(format!("Skipping {name}")));
+//                 } else {
+//                     break new_path.unwrap().path.unwrap();
+//                 }
+//             };
+//         } else {
+//             break Ok((file.unwrap(), path));
+//         }
+//     }
+// }
 
 impl Player {
     pub fn new(media: PathBuf, name: String) -> Result<Self, Error> {
         let (stream, handle, sink) = get_device_stuff()?;
-        let (file, media) = file_user_fallback(media, &name)?;
+        let file = File::open(&media).map_err(|err| convert_file_error(&media, &err))?;
         Ok(Self {
             name,
             group: None,
@@ -190,11 +185,12 @@ impl Player {
 
     pub fn from_serializable(player: &Serializable) -> Result<Self, Error> {
         let (stream, handle, sink) = get_device_stuff()?;
-        let (file, media) = file_user_fallback(player.media.clone(), &player.name)?;
+        let file =
+            File::open(&player.media).map_err(|err| convert_file_error(&player.media, &err))?;
         let mut new_player = Self {
             name: player.name.clone(),
             group: player.group.clone(),
-            media,
+            media: player.media.clone(),
             file_handle: RefCell::new(file),
             playing: false,
             paused: false,
@@ -367,57 +363,6 @@ impl Player {
             f32::sqrt(f32::sqrt(f32::sqrt(volume as f32 / 100.0))).mul_add(192.0, -192.0) / 6.0,
         );
         self.sink.set_volume(real_volume);
-    }
-}
-
-fn duration_to_string(dur: Duration, no_smaller_than_secs: bool) -> String {
-    let nanos = if no_smaller_than_secs {
-        dur.as_secs() * 1_000_000_000
-    } else {
-        dur.as_nanos() as u64
-    };
-    if nanos == 0 {
-        "0s".to_string()
-    } else {
-        format!("{:#}", DurationHuman::from(nanos))
-    }
-}
-
-impl ToString for Player {
-    fn to_string(&self) -> String {
-        fomat!(
-            (self.name) ":"
-            if self.get_is_playing() {
-                "\n\tplaying"
-            } else {
-                if self.get_is_paused() {
-                    "\n\tpaused"
-                } else {
-                    "\n\tnot playing"
-                }
-            }
-            if self.get_is_playing() || self.get_is_paused() {
-                "\n\thas been playing for: " (duration_to_string(self.get_play_time(), true))
-            }
-            "\n\tvolume: " (self.volume) "%"
-            if self.looping {
-                "\n\tloops"
-                if let Some(length) = self.loop_length {
-                    ": every " (duration_to_string(length, false))
-                }
-            }
-            if self.skip_length > Duration::new(0, 0) {
-                "\n\tstarts at: " (duration_to_string(self.skip_length, false))
-            }
-            if let Some(length) = self.take_length {
-                if length > Duration::new(0, 0) {
-                    "\n\tends at: " (duration_to_string(length, false))
-                }
-            }
-            if self.delay_length > Duration::new(0, 0) {
-                "\n\tdelay: "  (duration_to_string(self.delay_length, false))
-            }
-        )
     }
 }
 
