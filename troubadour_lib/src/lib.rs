@@ -1,4 +1,5 @@
-use anyhow::Error;
+use crate::error::Error;
+use error::{convert_read_file_error, convert_write_file_error, ErrorVariant};
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -7,6 +8,7 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+pub mod error;
 pub mod player;
 
 use crate::player::Player;
@@ -41,14 +43,20 @@ impl AppState {
 
     pub fn add(&mut self, path: PathBuf, name: String) -> Result<RespondResult, Error> {
         if &name.to_lowercase() == "all" {
-            return Err(Error::msg(
-                "error: you cannot use the name 'all', because it is a keyword.",
-            ));
+            return Err(Error {
+                msg: "error: you cannot use the name 'all', because it is a keyword.".to_string(),
+                variant: ErrorVariant::NameConflict,
+                source: None,
+            });
         }
         if self.players.contains_key(&name) {
-            return Err(Error::msg(format!(
-                "error: you cannot use the name '{name}', because it is already used."
-            )));
+            return Err(Error {
+                msg: format!(
+                    "error: you cannot use the name '{name}', because it is already used."
+                ),
+                variant: ErrorVariant::NameConflict,
+                source: None,
+            });
         }
         let new_player = Player::new(path, name.clone())?;
         self.players.insert(name.clone(), new_player);
@@ -62,15 +70,20 @@ impl AppState {
     pub fn remove(&mut self, ids: &Vec<String>) -> Result<RespondResult, Error> {
         validate_selection(self, &ids, &vec![])?;
         if ids.len() == 0 {
-            return Err(Error::msg(
-                "error: please provide the ids of the players that you want to remove",
-            ));
+            return Err(Error {
+                msg: "error: please provide the ids of the players that you want to remove"
+                    .to_string(),
+                variant: ErrorVariant::MissingId,
+                source: None,
+            });
         }
         for id in ids {
             if id.to_lowercase() == "all" {
-                return Err(Error::msg(
-                    "error: 'all' is not a valid id for this command",
-                ));
+                return Err(Error {
+                    msg: "error: 'all' is not a valid id for this command".to_string(),
+                    variant: ErrorVariant::InvalidId,
+                    source: None,
+                });
             }
         }
         self.players.retain(|k, _| !ids.contains(k));
@@ -231,7 +244,11 @@ impl AppState {
                 self
                     .groups
                     .get_mut(group)
-                    .ok_or(Error::msg("error: player carries reference to non-existent group. This is a bug. Contact the developer"))?
+                    .ok_or(Error{
+                        msg:"error: player carries reference to non-existent group. This is a bug. Contact the developer".to_string(),
+                        variant: ErrorVariant::InvalidGroupId,
+                        source: None
+                    })?
                     .shift_remove(id);
             }
             player.group = Some(name.clone());
@@ -255,9 +272,11 @@ impl AppState {
         let group = self.groups.get_mut(&name).unwrap();
         for id in ids {
             if !group.contains(id) {
-                return Err(Error::msg(format!(
-                    "error: {id} is not part of the group {name}"
-                )));
+                return Err(Error {
+                    msg: format!("error: {id} is not part of the group {name}"),
+                    variant: ErrorVariant::InvalidId,
+                    source: None,
+                });
             }
         }
         let ids: IndexSet<String> = ids.clone().into_iter().collect();
@@ -290,8 +309,14 @@ impl AppState {
             top_group: self.top_group.clone(),
             groups: self.groups.clone(),
         };
-        let json = serde_json::to_string(&ser_app_self)?;
-        fs::write(path, json)?;
+        let json = serde_json::to_string(&ser_app_self).map_err(|e| Error {
+            msg: "error: could not serialize to json. This is a bug. Contact the developer"
+                .to_string(),
+            variant: ErrorVariant::Serialization,
+            source: Some(e.into()),
+        })?;
+        fs::write(path, json)
+            .map_err(|e| convert_write_file_error(path, e, error::FileKind::Save))?;
         Ok(RespondResult {
             mutated: false,
             saved: true,
@@ -299,7 +324,16 @@ impl AppState {
     }
 
     pub fn load(path: &Path) -> Result<AppState, Error> {
-        let json: SerializableAppself = serde_json::from_reader(File::open(path)?)?;
+        let json: SerializableAppself = serde_json::from_reader(
+            File::open(path)
+                .map_err(|e| convert_read_file_error(path, e, error::FileKind::Save))?,
+        )
+        .map_err(|e| Error {
+            msg: "error: could not deserialize from json. This is a bug. Contact the developer"
+                .to_string(),
+            variant: ErrorVariant::Deserialization,
+            source: Some(e.into()),
+        })?;
 
         let mut new = Self::new();
 
@@ -340,10 +374,11 @@ fn validate_selection(
 ) -> Result<(), Error> {
     for group_id in group_ids {
         if !state.groups.contains_key(group_id) {
-            return Err(Error::msg(format!(
-                "error: no group found with name {}",
-                group_id
-            )));
+            return Err(Error {
+                msg: format!("error: no group found with name {}", group_id),
+                variant: ErrorVariant::InvalidGroupId,
+                source: None,
+            });
         }
     }
     if ids.len() == 1 && ids[0].to_lowercase() == "all" {
@@ -351,22 +386,27 @@ fn validate_selection(
     }
     for id in ids {
         if id.to_lowercase() == "all" {
-            return Err(Error::msg(
-                "error: id 'all' is only valid when no other id's are specified",
-            ));
+            return Err(Error {
+                msg: "error: id 'all' is only valid when no other id's are specified".to_string(),
+                variant: ErrorVariant::InvalidId,
+                source: None,
+            });
         }
 
         if !state.players.contains_key(id) {
-            return Err(Error::msg(format!(
-                "error: no player found with name {}",
-                id
-            )));
+            return Err(Error {
+                msg: format!("error: no player found with name {}", id),
+                variant: ErrorVariant::InvalidId,
+                source: None,
+            });
         }
     }
     if state.top_group.len() == 0 {
-        return Err(Error::msg(
-            "error: no players to select. Add a player first",
-        ));
+        return Err(Error {
+            msg: "error: no players to select. Add a player first".to_string(),
+            variant: ErrorVariant::NoPlayers,
+            source: None,
+        });
     }
     Ok(())
 }
@@ -396,7 +436,11 @@ fn apply_selection(
         }
 
         if ids.len() == 0 && group_ids.len() == 0 && state.top_group.len() > 0 {
-            add_id(state.top_group.last().ok_or(Error::msg("error: internal reference to player that does not exist. This is a bug. Contact the developer"))?);
+            add_id(state.top_group.last().ok_or(Error{
+                msg:"error: internal reference to player that does not exist. This is a bug. Contact the developer".to_string(),
+                variant: ErrorVariant::InvalidId,
+                source: None
+            })?);
         }
     }
 
