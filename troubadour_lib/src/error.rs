@@ -6,7 +6,7 @@ use std::path::Path;
 pub struct Error {
     pub msg: String,
     pub variant: ErrorVariant,
-    pub source: Option<anyhow::Error>,
+    pub(crate) source: Option<anyhow::Error>,
 }
 
 #[derive(Debug)]
@@ -34,7 +34,7 @@ pub enum FileKind {
     Save,
 }
 
-pub fn convert_read_file_error(path: &Path, err: io::Error, kind: FileKind) -> Error {
+pub(crate) fn convert_read_file_error(path: &Path, err: io::Error, kind: FileKind) -> Error {
     let path_dis = path.display();
     match err.kind() {
         io::ErrorKind::NotFound => Error {
@@ -55,7 +55,7 @@ pub fn convert_read_file_error(path: &Path, err: io::Error, kind: FileKind) -> E
     }
 }
 
-pub fn convert_write_file_error(path: &Path, err: io::Error, kind: FileKind) -> Error {
+pub(crate) fn convert_write_file_error(path: &Path, err: io::Error, kind: FileKind) -> Error {
     let path_dis = path.display();
     match err.kind() {
         io::ErrorKind::AlreadyExists => Error {

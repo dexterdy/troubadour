@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use std::{
     cell::RefCell,
     fs::File,
-    io::{self, BufReader},
-    path::{Path, PathBuf},
+    io::BufReader,
+    path::PathBuf,
     time::{Duration, Instant},
 };
 
