@@ -9,7 +9,6 @@ license = "GPL-3.0"
 
 [dependencies]
 anyhow = "1.0.76"
-log = "0.4.20"
 clap = { version = "4.4.12", features = ["derive"] }
 shlex = "1.2.0"
 const_format = "0.2.32"

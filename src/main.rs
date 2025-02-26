@@ -7,7 +7,6 @@ use indexmap::{IndexMap, IndexSet};
 use rustyline::error::ReadlineError;
 use rustyline::history::FileHistory;
 use rustyline::{DefaultEditor, Editor};
-use std::collections::HashMap;
 use std::{path::PathBuf, time::Duration};
 use troubadour_lib::player::Player;
 use troubadour_lib::{AppState, RespondResult};

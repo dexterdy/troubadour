@@ -10,7 +10,6 @@ license = "GPL-3.0"
 [dependencies]
 rodio = "0.17.3"
 anyhow = "1.0.76"
-log = "0.4.20"
 paste = "1.0.14"
 serde_json = "1.0.109"
 serde = { version = "1.0.193", features = ["derive"] }
