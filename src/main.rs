@@ -266,9 +266,9 @@ under the conditions of the GPL v3."
 
         let mut state = AppState::new();
 
-        let response = readline("$ ".to_string(), &mut rl).and_then(|line| {
+        let response = readline("$ ", &mut rl).and_then(|line| {
             let line = line.trim();
-            respond(&mut state, &line)
+            respond(&mut state, &line, has_been_saved, &mut rl)
         });
 
         match response {
@@ -289,16 +289,13 @@ under the conditions of the GPL v3."
 
         if should_quit {
             let quit = has_been_saved
-                || get_confirmation(
-                    "Are you sure you want to exit without saving?".to_string(),
-                    &mut rl,
-                )
-                .unwrap_or_else(|e| {
-                    matches!(
-                        e.downcast::<ReadlineError>(),
-                        Ok(ReadlineError::Interrupted)
-                    )
-                });
+                || get_confirmation("Are you sure you want to exit without saving?", &mut rl)
+                    .unwrap_or_else(|e| {
+                        matches!(
+                            e.downcast::<ReadlineError>(),
+                            Ok(ReadlineError::Interrupted)
+                        )
+                    });
             if quit {
                 break Ok(());
             }
@@ -306,7 +303,12 @@ under the conditions of the GPL v3."
     }
 }
 
-fn respond(state: &mut AppState, line: &str) -> Result<InternalRespondResult, Error> {
+fn respond(
+    state: &mut AppState,
+    line: &str,
+    has_been_saved: bool,
+    rl: &mut Editor<(), FileHistory>,
+) -> Result<InternalRespondResult, Error> {
     if line.is_empty() {
         return Ok(InternalRespondResult {
             saved: false,
@@ -319,10 +321,26 @@ fn respond(state: &mut AppState, line: &str) -> Result<InternalRespondResult, Er
     })?;
     let matches = Commands::try_parse_from(args)?;
     match matches {
-        // TODO: handle filesystem errors
-        Commands::Add { path, name } => Ok(to_internal(state.add(path, name)?)),
-        // TODO: get confirmation
-        Commands::Remove { ids } => Ok(to_internal(state.remove(&ids)?)),
+        Commands::Add { path, name } => {
+            let res = Ok(to_internal(state.add(path, name.clone())?));
+            show_selection(state, &vec![name], &vec![])?;
+            res
+        }
+        Commands::Remove { ids } => {
+            let confirmation = get_confirmation(
+                "Are you sure you want to delete these players and/or groups?",
+                rl,
+            )?;
+            if confirmation {
+                Ok(to_internal(state.remove(&ids)?))
+            } else {
+                Ok(InternalRespondResult {
+                    saved: false,
+                    mutated: false,
+                    quit: false,
+                })
+            }
+        }
         Commands::Play { ids, groups } => {
             let res = Ok(to_internal(state.play(&ids, &groups)?));
             show_selection(state, &ids, &groups)?;
@@ -401,13 +419,36 @@ fn respond(state: &mut AppState, line: &str) -> Result<InternalRespondResult, Er
             ids,
         } => Ok(to_internal(state.group(group_name, &ids)?)),
         Commands::Ungroup { group, ids } => Ok(to_internal(state.ungroup(group, &ids)?)),
-        // TODO: handle filesystem errors
         Commands::Save { path } => Ok(to_internal(state.save(&path)?)),
-        // TODO: option to combine workspaces
-        // TODO: conflict resolution (overwrite, skip, rename)
-        // TODO: get confirmation for overwriting unsaved space
-        // TODO: handle filesystem errors (save/media files)
-        Commands::Load { path } => {
+        Commands::Load { path } => load_combine_or_overwrite(state, path, has_been_saved, rl),
+        Commands::Exit => Ok(InternalRespondResult {
+            saved: false,
+            mutated: false,
+            quit: true,
+        }),
+    }
+}
+
+fn load_combine_or_overwrite(
+    state: &mut AppState,
+    path: PathBuf,
+    has_been_saved: bool,
+    rl: &mut Editor<(), FileHistory>,
+) -> Result<InternalRespondResult, Error> {
+    let option = get_option(
+        "Do you want to combine workspaces? Combine(C)/Overwrite(O)",
+        vec!["c", "o"],
+        rl,
+    )?;
+
+    if option == "O" {
+        let confirmation = has_been_saved
+            || get_confirmation(
+                "You have unsaved changes. Are you sure you want to overwrite?",
+                rl,
+            )?;
+
+        return if confirmation {
             let new = AppState::load(&path)?;
             state.players = new.players;
             state.top_group = new.top_group;
@@ -417,13 +458,78 @@ fn respond(state: &mut AppState, line: &str) -> Result<InternalRespondResult, Er
                 mutated: true,
                 quit: false,
             })
-        }
-        Commands::Exit => Ok(InternalRespondResult {
-            saved: false,
-            mutated: false,
-            quit: true,
-        }),
+        } else {
+            Ok(InternalRespondResult {
+                saved: false,
+                mutated: false,
+                quit: false,
+            })
+        };
     }
+
+    let mut new = AppState::load(&path)?;
+    let mut renames = vec![];
+    let mut to_skip = vec![];
+
+    for name in new.players.keys() {
+        if state.players.contains_key(name) {
+            let option = get_option(
+                &format!(
+                    "A player by the name of {name} already exists. Overwrite(O)/Skip(S)/Rename(R)"
+                ),
+                vec!["o", "s", "r"],
+                rl,
+            )?;
+            match option.as_str() {
+                "o" => (),
+                "r" => {
+                    let new_name: String = readline("What should the new name be?", rl)?;
+                    renames.push((name.clone(), new_name));
+                }
+                _ => {
+                    to_skip.push(name.clone());
+                }
+            }
+        }
+    }
+
+    for (name, new_name) in renames {
+        let mut player = new.players.remove(&name).unwrap();
+        player.name = new_name.clone();
+        new.players.insert(new_name.clone(), player);
+        let (index, _) = new.top_group.shift_remove_full(&name).unwrap();
+        new.top_group.shift_insert(index, new_name.clone());
+        for group in new.groups.values_mut() {
+            let res = group.shift_remove_full(&name);
+            if let Some((index, _)) = res {
+                group.shift_insert(index, new_name.clone());
+            }
+        }
+    }
+
+    for skip in to_skip {
+        new.players.remove(&skip);
+        new.top_group.shift_remove(&skip);
+        for group in new.groups.values_mut() {
+            group.shift_remove(&skip);
+        }
+    }
+
+    state.players.extend(new.players);
+    state.top_group.extend(new.top_group);
+    for (name, new_group) in new.groups {
+        if let Some(group) = state.groups.get_mut(&name) {
+            group.extend(new_group);
+        } else {
+            state.groups.insert(name, new_group);
+        }
+    }
+
+    Ok(InternalRespondResult {
+        saved: false,
+        mutated: true,
+        quit: false,
+    })
 }
 
 fn to_internal(base: RespondResult) -> InternalRespondResult {
@@ -434,7 +540,7 @@ fn to_internal(base: RespondResult) -> InternalRespondResult {
     }
 }
 
-pub fn readline(prompt: String, rl: &mut Editor<(), FileHistory>) -> Result<String, Error> {
+pub fn readline(prompt: &str, rl: &mut Editor<(), FileHistory>) -> Result<String, Error> {
     let line = rl.readline(&prompt);
     match line {
         Ok(line) => {
@@ -448,11 +554,11 @@ pub fn readline(prompt: String, rl: &mut Editor<(), FileHistory>) -> Result<Stri
     }
 }
 
-fn get_confirmation(prompt: String, rl: &mut Editor<(), FileHistory>) -> Result<bool, Error> {
+fn get_confirmation(prompt: &str, rl: &mut Editor<(), FileHistory>) -> Result<bool, Error> {
     let mut result = None;
 
     while result.is_none() {
-        let response = readline(format!("{prompt} Y/N: "), rl)
+        let response = readline(&format!("{prompt} Y/N: "), rl)
             .map_err(Error::msg)?
             .trim()
             .to_lowercase();
@@ -467,19 +573,19 @@ fn get_confirmation(prompt: String, rl: &mut Editor<(), FileHistory>) -> Result<
 }
 
 fn get_option(
-    prompt: String,
-    valid_options: Vec<String>,
+    prompt: &str,
+    valid_options: Vec<&str>,
     rl: &mut Editor<(), FileHistory>,
 ) -> Result<String, Error> {
     let mut result = None;
 
     while result.is_none() {
-        let response = readline(format!("{prompt}: "), rl)
+        let response = readline(&format!("{prompt}: "), rl)
             .map_err(Error::msg)?
             .trim()
             .to_lowercase();
 
-        if !valid_options.contains(&response) {
+        if !valid_options.contains(&response.as_str()) {
             println!("{} is not a valid valid answer.", response);
             continue;
         }
