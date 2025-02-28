@@ -34,12 +34,12 @@ under the conditions of the GPL v3."
 
     let mut rl = DefaultEditor::new().expect("error: could not get access to the stdin.");
 
+    let mut state = AppState::new();
+
     let mut has_been_saved = true;
 
     loop {
         let mut should_quit = false;
-
-        let mut state = AppState::new();
 
         let response = readline("$ ", &mut rl).and_then(|line| {
             let line = line.trim();
@@ -211,8 +211,8 @@ fn load_combine_or_overwrite(
     rl: &mut Editor<(), FileHistory>,
 ) -> Result<InternalRespondResult, Error> {
     let option = get_option(
-        "Do you want to combine workspaces? Combine(C)/Overwrite(O)",
-        vec!["c", "o"],
+        "Do you want to combine soundscapes?",
+        vec![("Combine", "c"), ("Overwrite", "o")],
         rl,
     )?;
 
@@ -243,32 +243,50 @@ fn load_combine_or_overwrite(
     }
 
     let mut new = AppState::load(&path)?;
-    let mut renames = vec![];
-    let mut to_skip = vec![];
 
-    for name in new.players.keys() {
-        if state.players.contains_key(name) {
-            let option = get_option(
-                &format!(
-                    "A player by the name of {name} already exists. Overwrite(O)/Skip(S)/Rename(R)"
-                ),
-                vec!["o", "s", "r"],
-                rl,
-            )?;
-            match option.as_str() {
-                "o" => (),
-                "r" => {
-                    let new_name: String = readline("What should the new name be?", rl)?;
-                    renames.push((name.clone(), new_name));
-                }
-                _ => {
-                    to_skip.push(name.clone());
+    macro_rules! get_changes_helper {
+        ($item:expr, $new_map:expr, $map:expr, $options:expr) => {{
+            let mut renames = vec![];
+            let mut to_skip = vec![];
+
+            for name in new.players.keys() {
+                if state.players.contains_key(name) {
+                    let option = get_option(
+                        &format!("A {} by the name of {name} already exists.", $item),
+                        $options,
+                        rl,
+                    )?;
+                    match option.as_str() {
+                        "m" | "o" => (),
+                        "r" => {
+                            let new_name: String = readline("What should the new name be?", rl)?;
+                            renames.push((name.clone(), new_name));
+                        }
+                        _ => {
+                            to_skip.push(name.clone());
+                        }
+                    }
                 }
             }
-        }
+            (renames, to_skip)
+        }};
     }
 
-    for (name, new_name) in renames {
+    let (player_renames, players_to_skip) = get_changes_helper!(
+        "player",
+        new.players,
+        state.players,
+        vec![("Overwrite", "o"), ("Rename", "r"), ("Skip", "s")]
+    );
+
+    let (group_renames, groups_to_skip) = get_changes_helper!(
+        "group",
+        new.groups,
+        state.groups,
+        vec![("Merge", "m"), ("Rename", "r"), ("Skip", "s")]
+    );
+
+    for (name, new_name) in player_renames {
         if let Some(mut player) = new.players.remove(&name) {
             player.name = new_name.clone();
             new.players.insert(new_name.clone(), player);
@@ -286,11 +304,21 @@ fn load_combine_or_overwrite(
         }
     }
 
-    for skip in to_skip {
+    for skip in players_to_skip {
         new.players.remove(&skip);
         new.top_group.shift_remove(&skip);
         for group in new.groups.values_mut() {
             group.shift_remove(&skip);
+        }
+    }
+
+    for skip in groups_to_skip {
+        new.groups.shift_remove(&skip);
+    }
+
+    for (name, new_name) in group_renames {
+        if let Some((index, _, group)) = new.groups.shift_remove_full(&name) {
+            new.groups.shift_insert(index, new_name.clone(), group);
         }
     }
 

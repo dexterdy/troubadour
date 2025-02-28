@@ -322,7 +322,7 @@ impl Player {
 #[test]
 fn player_functionality() {
     let mut player = Player::new(
-        PathBuf::from(r"C:\Users\dexte\Music\ambience\combat\War Horn.ogg"),
+        PathBuf::from(r"/home/jphagedoorn/Downloads/Marimba name that tune no 1 [Q5mpenYcXyw].mp3"),
         "giant".to_string(),
     )
     .unwrap();

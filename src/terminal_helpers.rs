@@ -43,18 +43,33 @@ pub fn get_confirmation(prompt: &str, rl: &mut Editor<(), FileHistory>) -> Resul
 
 pub fn get_option(
     prompt: &str,
-    valid_options: Vec<&str>,
+    valid_options: Vec<(&str, &str)>,
     rl: &mut Editor<(), FileHistory>,
 ) -> Result<String, Error> {
     let mut result = None;
 
     while result.is_none() {
-        let response = readline(&format!("{prompt}: "), rl)
-            .map_err(Error::msg)?
-            .trim()
-            .to_lowercase();
+        let response = readline(
+            &format!(
+                "{prompt} {}: ",
+                valid_options
+                    .iter()
+                    .map(|o| format!("{}({})", o.0, 0.1))
+                    .collect::<Vec<String>>()
+                    .join("/")
+            ),
+            rl,
+        )
+        .map_err(Error::msg)?
+        .trim()
+        .to_lowercase();
 
-        if !valid_options.contains(&response.as_str()) {
+        if !valid_options
+            .iter()
+            .map(|o| o.1)
+            .collect::<Vec<&str>>()
+            .contains(&response.as_str())
+        {
             println!("{} is not a valid valid answer.", response);
             continue;
         }
