@@ -6,26 +6,18 @@ This project was created because I found that there was a distinct lack of sound
 
 The project currently doesn't have a GUI, only a CLI, but it does have all the basic features you'd expect from a soundscape/soundboard creation tool:
 
-- [x] basics
-  - [x] play
-  - [x] pause
-  - [x] stop
-  - [x] volume
+- [x] audio basics
 - [x] loop sounds
-  - [x] loop at the end of a sound
-  - [x] loops longer than sound length (adds silence)
-  - [x] loops shorter than sound length (clips sound)
   - [x] delay start (useful when you want a loop to start only later in the soundscape)
   - [ ] set loop end (useful when you want a loop to stop after a certain time)
 - [x] clipping
-  - [x] clip start
-  - [x] clip end
-- [ ] fades (this will be a simple toggle)
+- [ ] fades
 - [x] save files
   - [x] local save files (doesn't copy your sound files)
   - [ ] sharable save files (copies your sound files)
-  - [x] add save file to current soundscape
 - [x] sound grouping (apply commands to entire group at once)
+- [ ] macros (set of commands that you can give a name)
+- [x] separate library and interface crates
 - [ ] GUI
 
 ## Usage guide
