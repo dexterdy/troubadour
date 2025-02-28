@@ -11,10 +11,11 @@ use std::{path::PathBuf, time::Duration};
 use troubadour_lib::player::Player;
 use troubadour_lib::{AppState, RespondResult};
 
-//TODO: Implement a sound length feature, based on amount samples
-//TODO: add fades toggle
-//TODO: make a nice GUI
-//VERY FAR FUTURE: add a special mapping feature (dungeon vtt-esque)
+// TODO: Implement a sound length feature, based on amount samples
+// TODO: add fades toggle
+// TODO: make a nice GUI
+// TODO: write a bunch of tests
+// VERY FAR FUTURE: add a special mapping feature (dungeon vtt-esque)
 
 const ADD_USAGE: &str = "add -p <PATH> -n <NAME>";
 const REMOVE_USAGE: &str = "remove [IDs]";
