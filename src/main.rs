@@ -42,7 +42,7 @@ under the conditions of the GPL v3."
 
         let response = readline("$ ", &mut rl).and_then(|line| {
             let line = line.trim();
-            respond(&mut state, &line, has_been_saved, &mut rl)
+            respond(&mut state, line, has_been_saved, &mut rl)
         });
 
         match response {

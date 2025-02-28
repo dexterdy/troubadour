@@ -10,7 +10,7 @@ use troubadour_lib::player::Player;
 use troubadour_lib::AppState;
 
 pub fn readline(prompt: &str, rl: &mut Editor<(), FileHistory>) -> Result<String, Error> {
-    let line = rl.readline(&prompt);
+    let line = rl.readline(prompt);
     match line {
         Ok(line) => {
             rl.add_history_entry(line.as_str()).unwrap_or_default();
@@ -163,7 +163,7 @@ pub fn show_selection(
             print_player(id)?;
         }
     }
-    if ids.len() == 0 && group_ids.len() == 0 && state.top_group.len() > 0 {
+    if ids.is_empty() && group_ids.is_empty() && !state.top_group.is_empty() {
         print_player(state.top_group.last().unwrap())?;
     }
     Ok(())

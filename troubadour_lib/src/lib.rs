@@ -14,6 +14,7 @@ pub mod player;
 use crate::player::Player;
 use crate::player::Serializable;
 
+#[derive(Default)]
 pub struct AppState {
     pub players: HashMap<String, Player>,
     pub top_group: IndexSet<String>,
@@ -34,11 +35,7 @@ struct SerializableAppself {
 
 impl AppState {
     pub fn new() -> Self {
-        AppState {
-            players: HashMap::new(),
-            top_group: IndexSet::new(),
-            groups: IndexMap::new(),
-        }
+        AppState::default()
     }
 
     pub fn add(&mut self, path: PathBuf, name: String) -> Result<RespondResult, Error> {
@@ -68,8 +65,8 @@ impl AppState {
     }
 
     pub fn remove(&mut self, ids: &Vec<String>) -> Result<RespondResult, Error> {
-        validate_selection(self, &ids, &vec![])?;
-        if ids.len() == 0 {
+        validate_selection(self, ids, &vec![])?;
+        if ids.is_empty() {
             return Err(Error {
                 msg: "error: please provide the ids of the players that you want to remove"
                     .to_string(),
@@ -102,7 +99,7 @@ impl AppState {
         ids: &Vec<String>,
         group_ids: &Vec<String>,
     ) -> Result<RespondResult, Error> {
-        apply_selection(self, &ids, &group_ids, |p| p.play())?;
+        apply_selection(self, ids, group_ids, |p| p.play())?;
         Ok(RespondResult {
             mutated: false,
             saved: false,
@@ -114,7 +111,10 @@ impl AppState {
         ids: &Vec<String>,
         group_ids: &Vec<String>,
     ) -> Result<RespondResult, Error> {
-        apply_selection(self, &ids, &group_ids, |p| Ok(p.stop()))?;
+        apply_selection(self, ids, group_ids, |p| {
+            p.stop();
+            Ok(())
+        })?;
         Ok(RespondResult {
             mutated: false,
             saved: false,
@@ -126,7 +126,10 @@ impl AppState {
         ids: &Vec<String>,
         group_ids: &Vec<String>,
     ) -> Result<RespondResult, Error> {
-        apply_selection(self, &ids, &group_ids, |p| Ok(p.pause()))?;
+        apply_selection(self, ids, group_ids, |p| {
+            p.pause();
+            Ok(())
+        })?;
         Ok(RespondResult {
             mutated: false,
             saved: false,
@@ -139,7 +142,10 @@ impl AppState {
         group_ids: &Vec<String>,
         volume: u32,
     ) -> Result<RespondResult, Error> {
-        apply_selection(self, &ids, &group_ids, |p| Ok(p.volume(volume)))?;
+        apply_selection(self, ids, group_ids, |p| {
+            p.volume(volume);
+            Ok(())
+        })?;
         Ok(RespondResult {
             mutated: true,
             saved: false,
@@ -152,7 +158,7 @@ impl AppState {
         group_ids: &Vec<String>,
         duration: Option<Duration>,
     ) -> Result<RespondResult, Error> {
-        apply_selection(self, &ids, &group_ids, |p| {
+        apply_selection(self, ids, group_ids, |p| {
             p.toggle_loop(true);
             p.loop_length(duration);
             p.apply_settings_in_place(false)?;
@@ -169,7 +175,7 @@ impl AppState {
         ids: &Vec<String>,
         group_ids: &Vec<String>,
     ) -> Result<RespondResult, Error> {
-        apply_selection(self, &ids, &group_ids, |p| {
+        apply_selection(self, ids, group_ids, |p| {
             p.toggle_loop(false);
             p.apply_settings_in_place(false)?;
             Ok(())
@@ -187,7 +193,7 @@ impl AppState {
         group_ids: &Vec<String>,
         duration: Duration,
     ) -> Result<RespondResult, Error> {
-        apply_selection(self, &ids, &group_ids, |p| {
+        apply_selection(self, ids, group_ids, |p| {
             p.skip_duration(duration);
             p.apply_settings_in_place(false)?;
             Ok(())
@@ -205,7 +211,7 @@ impl AppState {
         group_ids: &Vec<String>,
         duration: Option<Duration>,
     ) -> Result<RespondResult, Error> {
-        apply_selection(self, &ids, &group_ids, |p| {
+        apply_selection(self, ids, group_ids, |p| {
             p.take_duration(duration);
             p.apply_settings_in_place(false)?;
             Ok(())
@@ -223,7 +229,7 @@ impl AppState {
         group_ids: &Vec<String>,
         duration: Duration,
     ) -> Result<RespondResult, Error> {
-        apply_selection(self, &ids, &group_ids, |p| {
+        apply_selection(self, ids, group_ids, |p| {
             p.set_delay(duration);
             p.apply_settings_in_place(false)?;
             Ok(())
@@ -236,7 +242,7 @@ impl AppState {
     }
 
     pub fn group(&mut self, name: String, ids: &Vec<String>) -> Result<RespondResult, Error> {
-        validate_selection(self, &ids, &vec![])?;
+        validate_selection(self, ids, &vec![])?;
         for id in ids {
             self.top_group.shift_remove(id);
             let player = self.players.get_mut(id).unwrap();
@@ -268,7 +274,7 @@ impl AppState {
     }
 
     pub fn ungroup(&mut self, name: String, ids: &Vec<String>) -> Result<RespondResult, Error> {
-        validate_selection(self, &ids, &vec![name.clone()])?;
+        validate_selection(self, ids, &vec![name.clone()])?;
         let group = self.groups.get_mut(&name).unwrap();
         for id in ids {
             if !group.contains(id) {
@@ -401,7 +407,7 @@ fn validate_selection(
             });
         }
     }
-    if state.top_group.len() == 0 {
+    if state.top_group.is_empty() {
         return Err(Error {
             msg: "error: no players to select. Add a player first".to_string(),
             variant: ErrorVariant::NoPlayers,
@@ -435,7 +441,7 @@ fn apply_selection(
             }
         }
 
-        if ids.len() == 0 && group_ids.len() == 0 && state.top_group.len() > 0 {
+        if ids.is_empty() && group_ids.is_empty() && !state.top_group.is_empty() {
             add_id(state.top_group.last().ok_or(Error{
                 msg:"error: internal reference to player that does not exist. This is a bug. Contact the developer".to_string(),
                 variant: ErrorVariant::InvalidId,
