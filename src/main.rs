@@ -268,11 +268,15 @@ fn load_combine_or_overwrite(
     }
 
     for (name, new_name) in renames {
-        let mut player = new.players.remove(&name).unwrap();
-        player.name = new_name.clone();
-        new.players.insert(new_name.clone(), player);
-        let (index, _) = new.top_group.shift_remove_full(&name).unwrap();
-        new.top_group.shift_insert(index, new_name.clone());
+        if let Some(mut player) = new.players.remove(&name) {
+            player.name = new_name.clone();
+            new.players.insert(new_name.clone(), player);
+        }
+
+        if let Some((index, _)) = new.top_group.shift_remove_full(&name) {
+            new.top_group.shift_insert(index, new_name.clone());
+        }
+
         for group in new.groups.values_mut() {
             let res = group.shift_remove_full(&name);
             if let Some((index, _)) = res {
@@ -292,11 +296,11 @@ fn load_combine_or_overwrite(
     state.players.extend(new.players);
     state.top_group.extend(new.top_group);
     for (name, new_group) in new.groups {
-        if let Some(group) = state.groups.get_mut(&name) {
-            group.extend(new_group);
-        } else {
-            state.groups.insert(name, new_group);
-        }
+        state
+            .groups
+            .entry(name)
+            .or_insert_with(|| new_group.clone())
+            .extend(new_group);
     }
 
     Ok(InternalRespondResult {
