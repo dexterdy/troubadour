@@ -9,7 +9,8 @@ use troubadour_lib::{AppState, RespondResult};
 use ui_definition::Commands;
 
 // TODO: Implement a sound length feature, based on amount samples
-// TODO: add fades toggle
+// TODO: fades (fade in, fade out, fade transition, fade length with default)
+// TODO: macros (sets of commands that you can give a name)
 // TODO: make a nice GUI
 // TODO: write a bunch of tests
 // VERY FAR FUTURE: add a special mapping feature (dungeon vtt-esque)
