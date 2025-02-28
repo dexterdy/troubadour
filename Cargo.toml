@@ -8,17 +8,13 @@ license = "GPL-3.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rodio = "0.17.3"
 anyhow = "1.0.76"
-log = "0.4.20"
-paste = "1.0.14"
 clap = { version = "4.4.12", features = ["derive"] }
 shlex = "1.2.0"
 const_format = "0.2.32"
 fomat-macros = "0.3.2"
 duration-human = "0.1.10"
 duration-str = { version = "0.7.1", default-features = false }
-serde_json = "1.0.109"
-serde = { version = "1.0.193", features = ["derive"] }
 rustyline = "13.0.0"
 indexmap = { version = "2.2.6", features = ["serde"] }
+troubadour_lib = { path = "./troubadour_lib" }
