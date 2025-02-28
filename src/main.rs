@@ -296,11 +296,11 @@ fn load_combine_or_overwrite(
     state.players.extend(new.players);
     state.top_group.extend(new.top_group);
     for (name, new_group) in new.groups {
-        state
-            .groups
-            .entry(name)
-            .or_insert_with(|| new_group.clone())
-            .extend(new_group);
+        if let Some(group) = state.groups.get_mut(&name) {
+            group.extend(new_group);
+        } else {
+            state.groups.insert(name, new_group);
+        }
     }
 
     Ok(InternalRespondResult {
