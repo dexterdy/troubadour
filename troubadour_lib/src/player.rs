@@ -98,8 +98,8 @@ fn get_device_stuff() -> Result<(OutputStream, OutputStreamHandle, Sink), Error>
 impl Player {
     pub fn new(media: PathBuf, name: String) -> Result<Self, Error> {
         let (stream, handle, sink) = get_device_stuff()?;
-        let file =
-            File::open(&media).map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?;
+        let file = File::open(&media)
+            .map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?;
         Ok(Self {
             name,
             group: None,
@@ -202,7 +202,7 @@ impl Player {
         );
         let decoder = Decoder::new(media).map_err(|e| Error {
             msg:"error: cannot play file. The format might not be supported, or the data is corrupt.".to_string(), 
-            variant: ErrorVariant::DecoderFailed, 
+            variant: ErrorVariant::DecoderFailed,
             source: Some(e.into()),
         })?;
 
@@ -278,9 +278,9 @@ impl Player {
     pub fn play(&mut self) -> Result<(), Error> {
         if self.get_is_playing() {
             return Err(Error {
-                msg: format!("error: player {} is already playing", self.name), 
-                variant: ErrorVariant::OperationFailed, 
-                source: None
+                msg: format!("error: player {} is already playing", self.name),
+                variant: ErrorVariant::OperationFailed,
+                source: None,
             });
         }
         if self.get_is_paused() {
