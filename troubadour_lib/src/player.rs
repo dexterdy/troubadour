@@ -277,7 +277,11 @@ impl Player {
 
     pub fn play(&mut self) -> Result<(), Error> {
         if self.get_is_playing() {
-            return Ok(());
+            return Err(Error {
+                msg: format!("error: player {} is already playing", self.name), 
+                variant: ErrorVariant::OperationFailed, 
+                source: None
+            });
         }
         if self.get_is_paused() {
             self.sink.play();

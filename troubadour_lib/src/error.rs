@@ -26,6 +26,7 @@ pub enum ErrorVariant {
     MissingGroupId,
     InvalidId,
     InvalidGroupId,
+    OperationFailed,
 }
 
 #[derive(Debug)]

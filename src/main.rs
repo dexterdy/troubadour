@@ -13,6 +13,7 @@ use ui_definition::Commands;
 // TODO: macros (sets of commands that you can give a name)
 // TODO: make a nice GUI
 // TODO: write a bunch of tests
+// TODO: copy operation
 // VERY FAR FUTURE: add a special mapping feature (dungeon vtt-esque)
 
 mod terminal_helpers;
@@ -41,7 +42,7 @@ under the conditions of the GPL v3."
     loop {
         let mut should_quit = false;
 
-        let response = readline("$ ", &mut rl).and_then(|line| {
+        let response = readline("$", &mut rl).and_then(|line| {
             let line = line.trim();
             respond(&mut state, line, has_been_saved, &mut rl)
         });
@@ -52,7 +53,7 @@ under the conditions of the GPL v3."
                 mutated,
                 quit,
             }) => {
-                has_been_saved = (has_been_saved || saved) && !mutated;
+                has_been_saved = (has_been_saved && !mutated) || saved;
                 should_quit = quit;
             }
             Err(err) => match err.downcast::<ReadlineError>() {
@@ -210,13 +211,16 @@ fn load_combine_or_overwrite(
     has_been_saved: bool,
     rl: &mut Editor<(), FileHistory>,
 ) -> Result<InternalRespondResult, Error> {
-    let option = get_option(
-        "Do you want to combine soundscapes?",
-        vec![("Combine", "c"), ("Overwrite", "o")],
-        rl,
-    )?;
+    let is_empty =
+        state.players.is_empty() && state.groups.is_empty() && state.top_group.is_empty();
+    let overwrite = is_empty
+        || get_option(
+            "Do you want to combine soundscapes?",
+            vec![("Combine", "c"), ("Overwrite", "o")],
+            rl,
+        )? == "o";
 
-    if option == "O" {
+    if overwrite {
         let confirmation = has_been_saved
             || get_confirmation(
                 "You have unsaved changes. Are you sure you want to overwrite?",
@@ -229,7 +233,7 @@ fn load_combine_or_overwrite(
             state.top_group = new.top_group;
             state.groups = new.groups;
             Ok(InternalRespondResult {
-                saved: false,
+                saved: true,
                 mutated: true,
                 quit: false,
             })
@@ -249,8 +253,8 @@ fn load_combine_or_overwrite(
             let mut renames = vec![];
             let mut to_skip = vec![];
 
-            for name in new.players.keys() {
-                if state.players.contains_key(name) {
+            for name in $new_map.keys() {
+                if $map.contains_key(name) {
                     let option = get_option(
                         &format!("A {} by the name of {name} already exists.", $item),
                         $options,
@@ -259,7 +263,7 @@ fn load_combine_or_overwrite(
                     match option.as_str() {
                         "m" | "o" => (),
                         "r" => {
-                            let new_name: String = readline("What should the new name be?", rl)?;
+                            let new_name: String = readline("What should the new name be?:", rl)?;
                             renames.push((name.clone(), new_name));
                         }
                         _ => {

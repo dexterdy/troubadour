@@ -10,7 +10,7 @@ use troubadour_lib::player::Player;
 use troubadour_lib::AppState;
 
 pub fn readline(prompt: &str, rl: &mut Editor<(), FileHistory>) -> Result<String, Error> {
-    let line = rl.readline(prompt);
+    let line = rl.readline(&format!("{prompt} "));
     match line {
         Ok(line) => {
             rl.add_history_entry(line.as_str()).unwrap_or_default();
@@ -27,7 +27,7 @@ pub fn get_confirmation(prompt: &str, rl: &mut Editor<(), FileHistory>) -> Resul
     let mut result = None;
 
     while result.is_none() {
-        let response = readline(&format!("{prompt} Y/N: "), rl)
+        let response = readline(&format!("{prompt} Y/N:"), rl)
             .map_err(Error::msg)?
             .trim()
             .to_lowercase();
@@ -51,10 +51,10 @@ pub fn get_option(
     while result.is_none() {
         let response = readline(
             &format!(
-                "{prompt} {}: ",
+                "{prompt} {}:",
                 valid_options
                     .iter()
-                    .map(|o| format!("{}({})", o.0, 0.1))
+                    .map(|o| format!("{}({})", o.0, o.1))
                     .collect::<Vec<String>>()
                     .join("/")
             ),

@@ -250,7 +250,7 @@ impl AppState {
                 self
                     .groups
                     .get_mut(group)
-                    .ok_or(Error{
+                    .ok_or(Error {
                         msg:"error: player carries reference to non-existent group. This is a bug. Contact the developer".to_string(),
                         variant: ErrorVariant::InvalidGroupId,
                         source: None
@@ -407,7 +407,7 @@ fn validate_selection(
             });
         }
     }
-    if state.top_group.is_empty() {
+    if state.players.is_empty() {
         return Err(Error {
             msg: "error: no players to select. Add a player first".to_string(),
             variant: ErrorVariant::NoPlayers,
@@ -442,7 +442,7 @@ fn apply_selection(
         }
 
         if ids.is_empty() && group_ids.is_empty() && !state.top_group.is_empty() {
-            add_id(state.top_group.last().ok_or(Error{
+            add_id(state.top_group.last().ok_or(Error {
                 msg:"error: internal reference to player that does not exist. This is a bug. Contact the developer".to_string(),
                 variant: ErrorVariant::InvalidId,
                 source: None
