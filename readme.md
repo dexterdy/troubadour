@@ -16,7 +16,6 @@ The project currently doesn't have a GUI, only a CLI, but it does have all the b
   - [x] local save files (doesn't copy your sound files)
   - [ ] sharable save files (copies your sound files)
 - [x] sound grouping (apply commands to entire group at once)
-- [ ] macros (set of commands that you can give a name)
 - [x] separate library and interface crates
 - [ ] GUI
 

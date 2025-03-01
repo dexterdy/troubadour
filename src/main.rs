@@ -8,9 +8,7 @@ use terminal_helpers::{get_confirmation, get_option, readline, show_selection};
 use troubadour_lib::{AppState, RespondResult};
 use ui_definition::Commands;
 
-// TODO: Implement a sound length feature, based on amount samples
 // TODO: fades (fade in, fade out, fade transition, fade length with default)
-// TODO: macros (sets of commands that you can give a name)
 // TODO: make a nice GUI
 // TODO: write a bunch of tests
 // TODO: copy operation
