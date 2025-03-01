@@ -9,12 +9,10 @@ license = "GPL-3.0"
 
 [dependencies]
 anyhow = "1.0.76"
-clap = { version = "4.4.12", features = ["derive"] }
-shlex = "1.2.0"
-const_format = "0.2.32"
-fomat-macros = "0.3.2"
-duration-human = "0.1.10"
-duration-str = { version = "0.7.1", default-features = false }
-rustyline = "13.0.0"
+dioxus = { version = "0.6.3", features = [
+    "macro",
+    "hooks",
+], default-features = false }
+freya = { version = "0.2.2", features = ["devtools", "hot-reload"] }
 indexmap = { version = "2.2.6" }
 troubadour_lib = { path = "../troubadour_lib" }
