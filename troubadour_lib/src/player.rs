@@ -121,6 +121,32 @@ impl Player {
         })
     }
 
+    pub fn copy(&self, new_name: &str) -> Result<Self, Error> {
+        let (stream, handle, sink) = get_device_stuff()?;
+        let file = File::open(&self.media)
+            .map_err(|err| convert_read_file_error(&self.media, err, FileKind::Media))?;
+
+        Ok(Self {
+            stream: stream,
+            handle: handle,
+            sink: sink,
+            media: self.media.clone(),
+            file_handle: RefCell::new(file),
+            last_time_poll: self.last_time_poll.clone(),
+            time_at_last_poll: self.time_at_last_poll.clone(),
+            name: new_name.to_string(),
+            group: self.group.clone(),
+            playing: self.playing.clone(),
+            paused: self.paused.clone(),
+            volume: self.volume.clone(),
+            looping: self.looping.clone(),
+            loop_length: self.loop_length.clone(),
+            delay_length: self.delay_length.clone(),
+            take_length: self.take_length.clone(),
+            skip_length: self.skip_length.clone(),
+        })
+    }
+
     pub fn to_serializable(&self) -> Serializable {
         Serializable {
             name: self.name.clone(),

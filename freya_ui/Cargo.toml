@@ -13,6 +13,8 @@ dioxus = { version = "0.6.3", features = [
     "macro",
     "hooks",
 ], default-features = false }
-freya = { version = "0.2.2", features = ["devtools", "hot-reload"] }
+freya = { version = "0.2.2", features = ["devtools"] }
 indexmap = { version = "2.2.6" }
+rdf = "0.1.4"
+rfd = "0.15.2"
 troubadour_lib = { path = "../troubadour_lib" }
