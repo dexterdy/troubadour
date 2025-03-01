@@ -17,4 +17,4 @@ duration-human = "0.1.10"
 duration-str = { version = "0.7.1", default-features = false }
 rustyline = "13.0.0"
 indexmap = { version = "2.2.6", features = ["serde"] }
-troubadour_lib = { path = "./troubadour_lib" }
+troubadour_lib = { path = "../troubadour_lib" }
