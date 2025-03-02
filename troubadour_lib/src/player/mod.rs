@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
+use decoder::Decoder;
 use paste::item;
-use rodio::{source::Zero, Decoder, OutputStream, OutputStreamHandle, Sink, Source};
+use rodio::{source::Zero, OutputStream, OutputStreamHandle, Sink, Source};
 use serde::{Deserialize, Serialize};
 use std::{
-    cell::RefCell,
     fs::File,
     io::BufReader,
     path::PathBuf,
@@ -12,6 +12,7 @@ use std::{
 };
 
 use crate::error::{convert_read_file_error, Error, ErrorVariant, FileKind};
+mod decoder;
 
 #[derive(Serialize, Deserialize)]
 pub struct Serializable {
@@ -30,8 +31,8 @@ pub struct Player {
     stream: OutputStream,
     handle: OutputStreamHandle,
     sink: Sink,
+    decoder: Decoder<BufReader<File>>,
     media: PathBuf,
-    file_handle: RefCell<File>,
     last_time_poll: Option<Instant>,
     time_at_last_poll: Duration,
     pub name: String,
@@ -100,11 +101,17 @@ impl Player {
         let (stream, handle, sink) = get_device_stuff()?;
         let file = File::open(&media)
             .map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?;
+        let buf_reader = BufReader::new(file);
+        let decoder = Decoder::new(buf_reader).map_err(|e| Error {
+            msg:"error: cannot play file. The format might not be supported, or the data is corrupt.".to_string(), 
+            variant: ErrorVariant::DecoderFailed,
+            source: Some(e.into()),
+        })?;
+
         Ok(Self {
             name,
             group: None,
             media,
-            file_handle: RefCell::new(file),
             playing: false,
             paused: false,
             volume: 100,
@@ -116,6 +123,7 @@ impl Player {
             stream,
             handle,
             sink,
+            decoder,
             last_time_poll: None,
             time_at_last_poll: Duration::from_secs(0),
         })
@@ -125,13 +133,19 @@ impl Player {
         let (stream, handle, sink) = get_device_stuff()?;
         let file = File::open(&self.media)
             .map_err(|err| convert_read_file_error(&self.media, err, FileKind::Media))?;
+        let buf_reader = BufReader::new(file);
+        let decoder = Decoder::new(buf_reader).map_err(|e| Error {
+            msg:"error: cannot play file. The format might not be supported, or the data is corrupt.".to_string(), 
+            variant: ErrorVariant::DecoderFailed,
+            source: Some(e.into()),
+        })?;
 
         Ok(Self {
             stream: stream,
             handle: handle,
             sink: sink,
+            decoder,
             media: self.media.clone(),
-            file_handle: RefCell::new(file),
             last_time_poll: self.last_time_poll.clone(),
             time_at_last_poll: self.time_at_last_poll.clone(),
             name: new_name.to_string(),
@@ -165,11 +179,18 @@ impl Player {
         let (stream, handle, sink) = get_device_stuff()?;
         let file = File::open(&player.media)
             .map_err(|err| convert_read_file_error(&player.media, err, FileKind::Media))?;
+        let buf_reader = BufReader::new(file);
+        let decoder = Decoder::new(buf_reader).map_err(|e| Error {
+            msg:"error: cannot play file. The format might not be supported, or the data is corrupt.".to_string(), 
+            variant: ErrorVariant::DecoderFailed,
+            source: Some(e.into()),
+        })?;
+
         let mut new_player = Self {
             name: player.name.clone(),
             group: player.group.clone(),
             media: player.media.clone(),
-            file_handle: RefCell::new(file),
+            decoder,
             playing: false,
             paused: false,
             volume: player.volume,
@@ -215,22 +236,8 @@ impl Player {
         start_immediately: bool,
         start_at: Duration,
     ) -> Result<(), Error> {
-        // possible edge case: prev buffer reads from file at same time as this operation, causing a race condition?
         let is_empty = self.sink.empty();
-        let file = File::open(&self.media)
-            .map_err(|err| convert_read_file_error(&self.media, err, FileKind::Media))?;
-        self.file_handle.replace(file);
-        let media = BufReader::new(
-            self.file_handle
-                .borrow()
-                .try_clone()
-                .map_err(|err| convert_read_file_error(&self.media, err, FileKind::Media))?,
-        );
-        let decoder = Decoder::new(media).map_err(|e| Error {
-            msg:"error: cannot play file. The format might not be supported, or the data is corrupt.".to_string(), 
-            variant: ErrorVariant::DecoderFailed,
-            source: Some(e.into()),
-        })?;
+        let decoder = self.decoder.clone();
 
         optional!(
             self.take_length.is_some() && self.take_length.unwrap() > Duration::from_secs(0) && (
