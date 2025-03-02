@@ -4,9 +4,8 @@ use paste::item;
 use rodio::{source::Zero, Decoder, OutputStream, OutputStreamHandle, Sink, Source};
 use serde::{Deserialize, Serialize};
 use std::{
-    cell::RefCell,
     fs::File,
-    io::BufReader,
+    io::{Cursor, Read},
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -26,12 +25,57 @@ pub struct Serializable {
     skip_length: Duration,
 }
 
-pub struct Player {
+fn new_decoder(src: Cursor<Vec<u8>>) -> Result<Decoder<Cursor<Vec<u8>>>, Error> {
+    Decoder::new(src).map_err(|e| Error {
+        msg: "error: cannot play file. The format might not be supported, or the data is corrupt."
+            .to_string(),
+        variant: ErrorVariant::DecoderFailed,
+        source: Some(e.into()),
+    })
+}
+
+struct Audio {
     stream: OutputStream,
     handle: OutputStreamHandle,
     sink: Sink,
+    source: Cursor<Vec<u8>>,
+}
+
+impl Audio {
+    fn new(media: PathBuf) -> Result<Self, Error> {
+        let (stream, handle) = OutputStream::try_default().map_err(|e| Error {
+            msg: "error: failed to set up your audio device.".to_string(),
+            variant: ErrorVariant::AudioDeviceSetupFailed,
+            source: Some(e.into()),
+        })?;
+        let sink = Sink::try_new(&handle).map_err(|e| Error {
+            msg: "error: failed to set up your audio device.".to_string(),
+            variant: ErrorVariant::AudioDeviceSetupFailed,
+            source: Some(e.into()),
+        })?;
+
+        let mut source = vec![];
+        File::open(&media)
+            .map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?
+            .read_to_end(&mut source)
+            .map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?;
+        let source = Cursor::new(source);
+
+        // This is just for checking whether there are any errors with loading the file and decoding it
+        let _ = new_decoder(source.clone())?;
+
+        Ok(Self {
+            stream,
+            handle,
+            sink,
+            source,
+        })
+    }
+}
+
+pub struct Player {
+    audio: Audio,
     media: PathBuf,
-    file_handle: RefCell<File>,
     last_time_poll: Option<Instant>,
     time_at_last_poll: Duration,
     pub name: String,
@@ -81,30 +125,16 @@ macro_rules! as_builder {
     };
 }
 
-fn get_device_stuff() -> Result<(OutputStream, OutputStreamHandle, Sink), Error> {
-    let (stream, handle) = OutputStream::try_default().map_err(|e| Error {
-        msg: "error: failed to set up your audio device.".to_string(),
-        variant: ErrorVariant::AudioDeviceSetupFailed,
-        source: Some(e.into()),
-    })?;
-    let sink = Sink::try_new(&handle).map_err(|e| Error {
-        msg: "error: failed to set up your audio device.".to_string(),
-        variant: ErrorVariant::AudioDeviceSetupFailed,
-        source: Some(e.into()),
-    })?;
-    Ok((stream, handle, sink))
-}
-
 impl Player {
     pub fn new(media: PathBuf, name: String) -> Result<Self, Error> {
-        let (stream, handle, sink) = get_device_stuff()?;
-        let file = File::open(&media)
-            .map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?;
+        let audio = Audio::new(media.clone())?;
         Ok(Self {
+            audio,
+            media,
+            last_time_poll: None,
+            time_at_last_poll: Duration::from_secs(0),
             name,
             group: None,
-            media,
-            file_handle: RefCell::new(file),
             playing: false,
             paused: false,
             volume: 100,
@@ -113,25 +143,15 @@ impl Player {
             delay_length: Duration::from_secs(0),
             take_length: None,
             skip_length: Duration::from_secs(0),
-            stream,
-            handle,
-            sink,
-            last_time_poll: None,
-            time_at_last_poll: Duration::from_secs(0),
         })
     }
 
     pub fn copy(&self, new_name: &str) -> Result<Self, Error> {
-        let (stream, handle, sink) = get_device_stuff()?;
-        let file = File::open(&self.media)
-            .map_err(|err| convert_read_file_error(&self.media, err, FileKind::Media))?;
+        let audio = Audio::new(self.media.clone())?;
 
         Ok(Self {
-            stream: stream,
-            handle: handle,
-            sink: sink,
+            audio,
             media: self.media.clone(),
-            file_handle: RefCell::new(file),
             last_time_poll: self.last_time_poll.clone(),
             time_at_last_poll: self.time_at_last_poll.clone(),
             name: new_name.to_string(),
@@ -162,14 +182,13 @@ impl Player {
     }
 
     pub fn from_serializable(player: &Serializable) -> Result<Self, Error> {
-        let (stream, handle, sink) = get_device_stuff()?;
-        let file = File::open(&player.media)
-            .map_err(|err| convert_read_file_error(&player.media, err, FileKind::Media))?;
+        let audio = Audio::new(player.media.clone())?;
+
         let mut new_player = Self {
+            audio,
             name: player.name.clone(),
             group: player.group.clone(),
             media: player.media.clone(),
-            file_handle: RefCell::new(file),
             playing: false,
             paused: false,
             volume: player.volume,
@@ -178,9 +197,6 @@ impl Player {
             delay_length: player.delay_length,
             take_length: player.take_length,
             skip_length: player.skip_length,
-            stream,
-            handle,
-            sink,
             last_time_poll: None,
             time_at_last_poll: Duration::from_secs(0),
         };
@@ -215,22 +231,9 @@ impl Player {
         start_immediately: bool,
         start_at: Duration,
     ) -> Result<(), Error> {
-        // possible edge case: prev buffer reads from file at same time as this operation, causing a race condition?
-        let is_empty = self.sink.empty();
-        let file = File::open(&self.media)
-            .map_err(|err| convert_read_file_error(&self.media, err, FileKind::Media))?;
-        self.file_handle.replace(file);
-        let media = BufReader::new(
-            self.file_handle
-                .borrow()
-                .try_clone()
-                .map_err(|err| convert_read_file_error(&self.media, err, FileKind::Media))?,
-        );
-        let decoder = Decoder::new(media).map_err(|e| Error {
-            msg:"error: cannot play file. The format might not be supported, or the data is corrupt.".to_string(), 
-            variant: ErrorVariant::DecoderFailed,
-            source: Some(e.into()),
-        })?;
+        let audio = &self.audio;
+        let decoder = new_decoder(audio.source.clone())?;
+        let is_empty = audio.sink.empty();
 
         optional!(
             self.take_length.is_some() && self.take_length.unwrap() > Duration::from_secs(0) && (
@@ -258,16 +261,16 @@ impl Player {
         optional!(
             self.delay_length > Duration::from_secs(0),
             let decoder = decoder.delay(self.delay_length),
-        self.sink.append(decoder)
+        audio.sink.append(decoder)
         ))))));
 
         if !is_empty {
-            self.sink.skip_one();
+            audio.sink.skip_one();
         }
         if start_immediately {
-            self.sink.play();
+            audio.sink.play();
         } else {
-            self.sink.pause();
+            audio.sink.pause();
         }
         Ok(())
     }
@@ -294,11 +297,11 @@ impl Player {
     }
 
     pub fn get_is_paused(&self) -> bool {
-        self.paused && !self.sink.empty() && !self.playing && self.sink.is_paused()
+        self.paused && !self.audio.sink.empty() && !self.playing && self.audio.sink.is_paused()
     }
 
     pub fn get_is_playing(&self) -> bool {
-        self.playing && !self.sink.empty() && !self.paused && !self.sink.is_paused()
+        self.playing && !self.audio.sink.empty() && !self.paused && !self.audio.sink.is_paused()
     }
 
     pub fn play(&mut self) -> Result<(), Error> {
@@ -310,7 +313,7 @@ impl Player {
             });
         }
         if self.get_is_paused() {
-            self.sink.play();
+            self.audio.sink.play();
         } else {
             self.time_at_last_poll = Duration::from_secs(0);
             self.apply_settings_in_place(true)?;
@@ -325,7 +328,7 @@ impl Player {
         if self.get_is_playing() {
             self.time_at_last_poll = self.get_play_time();
             self.last_time_poll = Some(Instant::now());
-            self.sink.pause();
+            self.audio.sink.pause();
             self.paused = true;
             self.playing = false;
         }
@@ -336,7 +339,7 @@ impl Player {
         self.paused = false;
         self.last_time_poll = None;
         self.time_at_last_poll = Duration::from_secs(0);
-        self.sink.clear();
+        self.audio.sink.clear();
     }
 
     pub fn volume(&mut self, volume: u32) {
@@ -345,7 +348,7 @@ impl Player {
             2.0,
             f32::sqrt(f32::sqrt(f32::sqrt(volume as f32 / 100.0))).mul_add(192.0, -192.0) / 6.0,
         );
-        self.sink.set_volume(real_volume);
+        self.audio.sink.set_volume(real_volume);
     }
 }
 
