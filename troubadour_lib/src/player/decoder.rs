@@ -21,25 +21,25 @@ impl<R: Read + Seek> Iterator for Decoder<R> {
     type Item = i16;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.borrow_mut().next()
+        self.inner.write().ok().and_then(|mut i| i.next())
     }
 }
 
 impl<R: Read + Seek> Source for Decoder<R> {
     fn current_frame_len(&self) -> Option<usize> {
-        self.inner.borrow().current_frame_len()
+        self.inner.read().unwrap().current_frame_len()
     }
 
     fn channels(&self) -> u16 {
-        self.inner.borrow().channels()
+        self.inner.read().unwrap().channels()
     }
 
     fn sample_rate(&self) -> u32 {
-        self.inner.borrow().sample_rate()
+        self.inner.read().unwrap().sample_rate()
     }
 
     fn total_duration(&self) -> Option<std::time::Duration> {
-        self.inner.borrow().total_duration()
+        self.inner.read().unwrap().total_duration()
     }
 }
 

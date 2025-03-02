@@ -259,7 +259,7 @@ impl Player {
             },
         optional!(
             self.looping,
-            let decoder = {decoder.repeat_infinite()},
+            let decoder = decoder.repeat_infinite(),
         optional!(start_at > self.skip_length,
             let decoder = decoder.skip_duration(start_at - self.skip_length),
         optional!(
