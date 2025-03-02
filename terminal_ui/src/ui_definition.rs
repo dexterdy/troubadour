@@ -227,5 +227,5 @@ build! {
 }
 
 fn parse_duration(dur: &str) -> Result<Duration, Error> {
-    Ok(duration_str::parse(dur).map_err(|e| Error::msg(e))?)
+    Ok(duration_str::parse(dur)?)
 }
