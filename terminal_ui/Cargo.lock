@@ -1123,7 +1123,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "troubadour"
+name = "troubadour-terminal"
 version = "0.1.0"
 dependencies = [
  "anyhow",

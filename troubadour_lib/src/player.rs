@@ -25,18 +25,6 @@ pub struct Serializable {
     skip_length: Duration,
 }
 
-fn new_decoder(media: &PathBuf) -> Result<Decoder<BufReader<File>>, Error> {
-    let source = BufReader::new(
-        File::open(&media).map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?,
-    );
-    Decoder::new(source).map_err(|e| Error {
-        msg: "error: cannot play file. The format might not be supported, or the data is corrupt."
-            .to_string(),
-        variant: ErrorVariant::DecoderFailed,
-        source: Some(e.into()),
-    })
-}
-
 struct Audio {
     stream: OutputStream,
     handle: OutputStreamHandle,
@@ -44,7 +32,7 @@ struct Audio {
 }
 
 impl Audio {
-    fn new(media: PathBuf) -> Result<Self, Error> {
+    fn new(media: &PathBuf) -> Result<(Self, Option<Duration>), Error> {
         let (stream, handle) = OutputStream::try_default().map_err(|e| Error {
             msg: "error: failed to set up your audio device.".to_string(),
             variant: ErrorVariant::AudioDeviceSetupFailed,
@@ -57,13 +45,16 @@ impl Audio {
         })?;
 
         // This is just for checking whether there are any errors with loading the file and decoding it
-        let _ = new_decoder(&media)?;
+        let d = new_decoder(media)?;
 
-        Ok(Self {
-            stream,
-            handle,
-            sink,
-        })
+        Ok((
+            Self {
+                stream,
+                handle,
+                sink,
+            },
+            d.total_duration(),
+        ))
     }
 }
 
@@ -73,6 +64,7 @@ pub struct Player {
     last_time_poll: Option<Instant>,
     time_at_last_poll: Duration,
     pub name: String,
+    pub length: Option<Duration>,
     pub group: Option<String>,
     pub playing: bool,
     pub paused: bool,
@@ -121,13 +113,14 @@ macro_rules! as_builder {
 
 impl Player {
     pub fn new(media: PathBuf, name: String) -> Result<Self, Error> {
-        let audio = Audio::new(media.clone())?;
+        let (audio, length) = Audio::new(&media)?;
         Ok(Self {
             audio,
             media,
             last_time_poll: None,
             time_at_last_poll: Duration::from_secs(0),
             name,
+            length,
             group: None,
             playing: false,
             paused: false,
@@ -141,7 +134,7 @@ impl Player {
     }
 
     pub fn copy(&self, new_name: &str) -> Result<Self, Error> {
-        let audio = Audio::new(self.media.clone())?;
+        let (audio, length) = Audio::new(&self.media)?;
 
         Ok(Self {
             audio,
@@ -149,6 +142,7 @@ impl Player {
             last_time_poll: self.last_time_poll.clone(),
             time_at_last_poll: self.time_at_last_poll.clone(),
             name: new_name.to_string(),
+            length,
             group: self.group.clone(),
             playing: self.playing.clone(),
             paused: self.paused.clone(),
@@ -176,11 +170,12 @@ impl Player {
     }
 
     pub fn from_serializable(player: &Serializable) -> Result<Self, Error> {
-        let audio = Audio::new(player.media.clone())?;
+        let (audio, length) = Audio::new(&player.media)?;
 
         let mut new_player = Self {
             audio,
             name: player.name.clone(),
+            length,
             group: player.group.clone(),
             media: player.media.clone(),
             playing: false,
@@ -226,8 +221,15 @@ impl Player {
         start_at: Duration,
     ) -> Result<(), Error> {
         let audio = &self.audio;
+        if !audio.sink.empty() {
+            audio.sink.skip_one();
+        }
         let decoder = new_decoder(&self.media)?;
-        let is_empty = audio.sink.empty();
+        let start_at = if let Some(length) = self.length {
+            duration_rem(start_at, length)
+        } else {
+            start_at
+        };
 
         optional!(
             self.take_length.is_some() && self.take_length.unwrap() > Duration::from_secs(0) && (
@@ -256,9 +258,6 @@ impl Player {
         audio.sink.append(decoder)
         )))));
 
-        if !is_empty {
-            audio.sink.skip_one();
-        }
         if start_immediately {
             audio.sink.play();
         } else {
@@ -304,13 +303,13 @@ impl Player {
                 source: None,
             });
         }
+        self.last_time_poll = Some(Instant::now());
         if self.get_is_paused() {
             self.audio.sink.play();
         } else {
             self.time_at_last_poll = Duration::from_secs(0);
             self.apply_settings_in_place(true)?;
         }
-        self.last_time_poll = Some(Instant::now());
         self.playing = true;
         self.paused = false;
         Ok(())
@@ -342,6 +341,22 @@ impl Player {
         );
         self.audio.sink.set_volume(real_volume);
     }
+}
+
+fn new_decoder(media: &PathBuf) -> Result<Decoder<BufReader<File>>, Error> {
+    let source = BufReader::new(
+        File::open(&media).map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?,
+    );
+    Decoder::new(source).map_err(|e| Error {
+        msg: "error: cannot play file. The format might not be supported, or the data is corrupt."
+            .to_string(),
+        variant: ErrorVariant::DecoderFailed,
+        source: Some(e.into()),
+    })
+}
+
+fn duration_rem(a: Duration, b: Duration) -> Duration {
+    Duration::from_secs_f64(a.as_secs_f64() % b.as_secs_f64())
 }
 
 #[test]

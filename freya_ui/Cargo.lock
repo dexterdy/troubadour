@@ -5129,7 +5129,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "troubadour"
+name = "troubadour-freya"
 version = "0.1.0"
 dependencies = [
  "anyhow",

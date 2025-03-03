@@ -1,0 +1,49 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug terminal ui",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=troubadour-terminal",
+                    "--package=troubadour-terminal"
+                ],
+                "filter": {
+                    "name": "troubadour-terminal",
+                    "kind": "bin"
+                },
+                "cwd": "${workspaceFolder}/terminal_ui",
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}/terminal_ui",
+            "relativePathBase": "${workspaceFolder}/terminal_ui"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests terminal ui",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=troubadour-terminal",
+                    "--package=troubadour-terminal"
+                ],
+                "filter": {
+                    "name": "troubadour-terminal",
+                    "kind": "bin"
+                },
+                "cwd": "${workspaceFolder}/terminal_ui",
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}/terminal_ui",
+            "relativePathBase": "${workspaceFolder}/terminal_ui"
+        }
+    ]
+}

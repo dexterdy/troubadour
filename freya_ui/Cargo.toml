@@ -1,5 +1,5 @@
 [package]
-name = "troubadour"
+name = "troubadour-freya"
 version = "0.1.0"
 edition = "2021"
 authors = ["J.P. Hagedoorn AKA Dexterdy Krataigos"]
