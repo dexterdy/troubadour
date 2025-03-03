@@ -63,6 +63,7 @@ pub struct Player {
     media: PathBuf,
     last_time_poll: Option<Instant>,
     time_at_last_poll: Duration,
+    should_restart: bool,
     pub name: String,
     pub length: Option<Duration>,
     pub group: Option<String>,
@@ -119,6 +120,7 @@ impl Player {
             media,
             last_time_poll: None,
             time_at_last_poll: Duration::from_secs(0),
+            should_restart: false,
             name,
             length,
             group: None,
@@ -139,8 +141,9 @@ impl Player {
         Ok(Self {
             audio,
             media: self.media.clone(),
-            last_time_poll: self.last_time_poll.clone(),
-            time_at_last_poll: self.time_at_last_poll.clone(),
+            last_time_poll: None,
+            time_at_last_poll: Duration::from_secs(0),
+            should_restart: false,
             name: new_name.to_string(),
             length,
             group: self.group.clone(),
@@ -174,10 +177,13 @@ impl Player {
 
         let mut new_player = Self {
             audio,
+            media: player.media.clone(),
+            last_time_poll: None,
+            time_at_last_poll: Duration::from_secs(0),
+            should_restart: false,
             name: player.name.clone(),
             length,
             group: player.group.clone(),
-            media: player.media.clone(),
             playing: false,
             paused: false,
             volume: player.volume,
@@ -186,8 +192,6 @@ impl Player {
             delay_length: player.delay_length,
             take_length: player.take_length,
             skip_length: player.skip_length,
-            last_time_poll: None,
-            time_at_last_poll: Duration::from_secs(0),
         };
         new_player.volume(player.volume);
         Ok(new_player)
@@ -196,14 +200,17 @@ impl Player {
     as_builder! {
         pub fn set_delay(&mut self, delay: Duration) {
             self.delay_length = delay;
+            self.should_restart = true;
         }
 
         pub fn skip_duration(&mut self, skip: Duration) {
             self.skip_length = skip;
+            self.should_restart = true;
         }
 
         pub fn take_duration(&mut self, take: Option<Duration>) {
             self.take_length = take;
+            self.should_restart = true;
         }
 
         pub fn toggle_loop(&mut self, looping: bool) {
@@ -215,20 +222,21 @@ impl Player {
         }
     }
 
-    fn apply_settings_internal(
-        &self,
-        start_immediately: bool,
-        start_at: Duration,
-    ) -> Result<(), Error> {
+    fn apply_settings_internal(&mut self, play_if_not_playing: bool) -> Result<(), Error> {
+        let start_immediately = self.get_is_playing() || play_if_not_playing;
+
         let audio = &self.audio;
         if !audio.sink.empty() {
             audio.sink.skip_one();
         }
+
         let decoder = new_decoder(&self.media)?;
+
+        let play_time = self.get_play_time();
         let start_at = if let Some(length) = self.length {
-            duration_rem(start_at, length)
+            duration_rem(play_time, length)
         } else {
-            start_at
+            play_time
         };
 
         optional!(
@@ -240,8 +248,8 @@ impl Player {
             ),
             let decoder = decoder.take_duration(self.take_length.unwrap()),
         optional!(
-            self.skip_length > Duration::from_secs(0) || start_at > Duration::from_secs(0),
-            let decoder = decoder.skip_duration(self.skip_length + start_at),
+            self.skip_length > Duration::from_secs(0),
+            let decoder = decoder.skip_duration(self.skip_length),
         optional!(
             self.looping && self.loop_length.is_some(),
             let decoder = {
@@ -253,27 +261,32 @@ impl Player {
             self.looping,
             let decoder = decoder.repeat_infinite(),
         optional!(
+            start_at > Duration::from_secs(0) && !self.should_restart,
+            let decoder = decoder.skip_duration(start_at),
+        optional!(
             self.delay_length > Duration::from_secs(0),
             let decoder = decoder.delay(self.delay_length),
         audio.sink.append(decoder)
-        )))));
+        ))))));
+
+        self.should_restart = false;
 
         if start_immediately {
             audio.sink.play();
         } else {
             audio.sink.pause();
         }
+
         Ok(())
     }
 
-    pub fn apply_settings(self, play_if_not_playing: bool) -> Result<Self, Error> {
+    pub fn apply_settings(mut self, play_if_not_playing: bool) -> Result<Self, Error> {
         self.apply_settings_in_place(play_if_not_playing)?;
         Ok(self)
     }
 
-    pub fn apply_settings_in_place(&self, play_if_not_playing: bool) -> Result<(), Error> {
-        let play_time = self.get_play_time();
-        self.apply_settings_internal(self.get_is_playing() || play_if_not_playing, play_time)
+    pub fn apply_settings_in_place(&mut self, play_if_not_playing: bool) -> Result<(), Error> {
+        self.apply_settings_internal(play_if_not_playing)
     }
 
     //TODO: an implementation of get_play_time() which relies on the play data, instead of the time crate
