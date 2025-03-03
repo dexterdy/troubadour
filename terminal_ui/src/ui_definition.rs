@@ -12,8 +12,8 @@ const PAUSE_USAGE: &str = "pause [IDs] [-g <GROUPS>]";
 const VOLUME_USAGE: &str = "volume [IDs] [-g <GROUPS>] -v <VOLUME>";
 const LOOP_USAGE: &str = "loop [IDs] [-g <GROUPS>] [-d <DURATION>]";
 const UNLOOP_USAGE: &str = "unloop [IDs] [-g <GROUPS>]";
-const SET_START_USAGE: &str = "set-start [IDs] [-g <GROUPS>] -p <POS>";
-const SET_END_USAGE: &str = "set-end [IDs] [-g <GROUPS>] [-p <POS>]";
+const CUT_START_USAGE: &str = "cut-start [IDs] [-g <GROUPS>] -d <DURATION>";
+const CUT_END_USAGE: &str = "cut-end [IDs] [-g <GROUPS>] -d <DURATION>";
 const DELAY_USAGE: &str = "delay [IDs] [-g <GROUPS>] -d <DURATION>";
 const GROUP_USAGE: &str = "group [IDs] -g <GROUP>";
 const UNGROUP_USAGE: &str = "ungroup [IDs] -g <GROUP>";
@@ -34,9 +34,8 @@ const ABOUT_PAUSE: &str = "Pauses sounds.";
 const ABOUT_LOOP: &str = "Loops sounds at the end of their play length or DURATION, if supplied.";
 const ABOUT_LOOP_LONG: &str = "Loops sounds the end of their play length or the DURATION, if supplied. DURATION can be longer than the sounds lengths.";
 const ABOUT_UNLOOP: &str = "Turns of looping for these sounds.";
-const ABOUT_SET_START: &str = "Clips the start of sounds by selecting the starting position.";
-const ABOUT_SET_END: &str =
-    "Clips the end of sounds by selecting the ending position. Reset by omitting POS.";
+const ABOUT_CUT_START: &str = "Clips the start of sounds.";
+const ABOUT_CUT_END: &str = "Clips the end of sounds.";
 const ABOUT_DELAY: &str =
     "Delays playing the sound after the play command. Useful when you play multiple sounds at once.";
 const ABOUT_GROUP: &str =
@@ -69,9 +68,9 @@ const USAGE: &str = formatcp!(
 
 \t{UNLOOP_USAGE}\n\t\t{ABOUT_UNLOOP}
 
-\t{SET_START_USAGE}\n\t\t{ABOUT_SET_START}
+\t{CUT_START_USAGE}\n\t\t{ABOUT_CUT_START}
 
-\t{SET_END_USAGE}\n\t\t{ABOUT_SET_END}
+\t{CUT_END_USAGE}\n\t\t{ABOUT_CUT_END}
 
 \t{DELAY_USAGE}\n\t\t{ABOUT_DELAY}
 
@@ -176,19 +175,19 @@ build! {
         #[arg(long, short)]
         groups: Vec<String>
     },
-    #[command(override_usage=SET_START_USAGE, about=format!("{ABOUT_SET_START} {NO_ID_ADDENDUM}"))]
-    SetStart {
+    #[command(override_usage=CUT_START_USAGE, about=format!("{ABOUT_CUT_START} {NO_ID_ADDENDUM}"))]
+    CutStart {
         ids: Vec<String>,
         #[arg(long, short, value_parser = parse_duration)]
-        pos: Duration,
+        duration: Duration,
         #[arg(long, short)]
         groups: Vec<String>
     },
-    #[command(override_usage=SET_END_USAGE, about=format!("{ABOUT_SET_END} {NO_ID_ADDENDUM}"))]
-    SetEnd {
+    #[command(override_usage=CUT_END_USAGE, about=format!("{ABOUT_CUT_END} {NO_ID_ADDENDUM}"))]
+    CutEnd {
         ids: Vec<String>,
         #[arg(long, short, value_parser = parse_duration)]
-        pos: Option<Duration>,
+        duration: Duration,
         #[arg(long, short)]
         groups: Vec<String>
     },

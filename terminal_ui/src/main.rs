@@ -161,19 +161,19 @@ fn respond(
             show_selection(state, &ids, &groups)?;
             res
         }
-        Commands::SetStart {
+        Commands::CutStart {
             ids,
             groups,
-            pos: duration,
+            duration,
         } => {
             let res = Ok(to_internal(state.set_start(&ids, &groups, duration)?));
             show_selection(state, &ids, &groups)?;
             res
         }
-        Commands::SetEnd {
+        Commands::CutEnd {
             ids,
             groups,
-            pos: duration,
+            duration,
         } => {
             let res = Ok(to_internal(state.set_end(&ids, &groups, duration)?));
             show_selection(state, &ids, &groups)?;

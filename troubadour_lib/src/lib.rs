@@ -159,9 +159,7 @@ impl AppState {
         duration: Option<Duration>,
     ) -> Result<RespondResult, Error> {
         apply_selection(self, ids, group_ids, |p| {
-            p.toggle_loop(true);
-            p.loop_length(duration);
-            p.apply_settings_in_place(false)?;
+            p.toggle_loop(true, duration.unwrap_or(Duration::from_secs(0)));
             Ok(())
         })?;
 
@@ -176,8 +174,7 @@ impl AppState {
         group_ids: &Vec<String>,
     ) -> Result<RespondResult, Error> {
         apply_selection(self, ids, group_ids, |p| {
-            p.toggle_loop(false);
-            p.apply_settings_in_place(false)?;
+            p.toggle_loop(false, p.loop_gap);
             Ok(())
         })?;
 
@@ -194,8 +191,7 @@ impl AppState {
         duration: Duration,
     ) -> Result<RespondResult, Error> {
         apply_selection(self, ids, group_ids, |p| {
-            p.skip_duration(duration);
-            p.apply_settings_in_place(false)?;
+            p.cut_start(duration);
             Ok(())
         })?;
 
@@ -209,11 +205,10 @@ impl AppState {
         &mut self,
         ids: &Vec<String>,
         group_ids: &Vec<String>,
-        duration: Option<Duration>,
+        duration: Duration,
     ) -> Result<RespondResult, Error> {
         apply_selection(self, ids, group_ids, |p| {
-            p.take_duration(duration);
-            p.apply_settings_in_place(false)?;
+            p.cut_end(duration);
             Ok(())
         })?;
 
@@ -231,7 +226,6 @@ impl AppState {
     ) -> Result<RespondResult, Error> {
         apply_selection(self, ids, group_ids, |p| {
             p.set_delay(duration);
-            p.apply_settings_in_place(false)?;
             Ok(())
         })?;
 

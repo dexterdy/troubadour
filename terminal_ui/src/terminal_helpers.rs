@@ -109,17 +109,15 @@ pub fn player_to_string(player: &Player) -> String {
         "\n\tvolume: " (player.volume) "%"
         if player.looping {
             "\n\tloops"
-            if let Some(length) = player.loop_length {
-                ": every " (duration_to_string(length, false))
+            if player.loop_gap > Duration::from_secs(0) {
+                " with gap: " (duration_to_string(player.loop_gap, false))
             }
         }
-        if player.skip_length > Duration::new(0, 0) {
-            "\n\tstarts at: " (duration_to_string(player.skip_length, false))
+        if player.cut_start > Duration::new(0, 0) {
+            "\n\t\tstart cut: " (duration_to_string(player.cut_start, false))
         }
-        if let Some(length) = player.take_length {
-            if length > Duration::new(0, 0) {
-                "\n\tends at: " (duration_to_string(length, false))
-            }
+        if player.cut_end > Duration::from_secs(0) {
+                "\n\tend cut: " (duration_to_string(player.cut_end, false))
         }
         if player.delay_length > Duration::new(0, 0) {
             "\n\tdelay: "  (duration_to_string(player.delay_length, false))

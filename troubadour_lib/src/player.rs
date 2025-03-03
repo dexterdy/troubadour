@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use paste::item;
 use rodio::{
     source::{Buffered, Zero},
     Decoder, OutputStream, OutputStreamHandle, Sink, Source,
@@ -21,10 +20,10 @@ pub struct Serializable {
     group: Option<String>,
     volume: u32,
     looping: bool,
-    loop_length: Option<Duration>,
+    loop_gap: Duration,
     delay_length: Duration,
-    take_length: Option<Duration>,
-    skip_length: Duration,
+    cut_end: Duration,
+    cut_start: Duration,
 }
 
 struct Audio {
@@ -74,18 +73,17 @@ pub struct Player {
     media: PathBuf,
     last_time_poll: Option<Instant>,
     time_at_last_poll: Duration,
-    should_restart: bool,
     pub name: String,
-    pub length: Option<Duration>,
+    pub base_length: Duration,
     pub group: Option<String>,
     pub playing: bool,
     pub paused: bool,
     pub volume: u32,
     pub looping: bool,
-    pub loop_length: Option<Duration>,
+    pub loop_gap: Duration,
     pub delay_length: Duration,
-    pub take_length: Option<Duration>,
-    pub skip_length: Duration,
+    pub cut_end: Duration,
+    pub cut_start: Duration,
 }
 
 macro_rules! optional {
@@ -109,66 +107,50 @@ macro_rules! optional {
     }
 }
 
-macro_rules! as_builder {
-    ($($v:vis fn $NAME:ident (&mut $self:ident, $($name:ident:$args:ty),*) $body:block)+) => {
-        $($v fn $NAME (&mut $self, $($name:$args),*) {
-            $body
-        }
-        item! {
-            $v fn [<$NAME _and>] (mut self, $($name:$args),*) -> Self{
-                self.$NAME($($name),*);
-                self
-            }
-        })+
-    };
-}
-
 impl Player {
     pub fn new(media: PathBuf, name: String) -> Result<Self, Error> {
         let audio = Audio::new(&media)?;
-        let length = audio.source.total_duration().clone();
+        let length = audio.source.total_duration().unwrap();
 
         Ok(Self {
             audio,
             media,
             last_time_poll: None,
             time_at_last_poll: Duration::from_secs(0),
-            should_restart: false,
             name,
-            length,
+            base_length: length,
             group: None,
             playing: false,
             paused: false,
             volume: 100,
             looping: false,
-            loop_length: None,
+            loop_gap: Duration::from_secs(0),
             delay_length: Duration::from_secs(0),
-            take_length: None,
-            skip_length: Duration::from_secs(0),
+            cut_end: Duration::from_secs(0),
+            cut_start: Duration::from_secs(0),
         })
     }
 
     pub fn copy(&self, new_name: &str) -> Result<Self, Error> {
         let audio = Audio::new(&self.media)?;
-        let length = audio.source.total_duration().clone();
+        let length = audio.source.total_duration().unwrap();
 
         Ok(Self {
             audio,
             media: self.media.clone(),
             last_time_poll: None,
             time_at_last_poll: Duration::from_secs(0),
-            should_restart: false,
             name: new_name.to_string(),
-            length,
+            base_length: length,
             group: self.group.clone(),
             playing: self.playing.clone(),
             paused: self.paused.clone(),
             volume: self.volume.clone(),
             looping: self.looping.clone(),
-            loop_length: self.loop_length.clone(),
+            loop_gap: self.loop_gap.clone(),
             delay_length: self.delay_length.clone(),
-            take_length: self.take_length.clone(),
-            skip_length: self.skip_length.clone(),
+            cut_end: self.cut_end.clone(),
+            cut_start: self.cut_start.clone(),
         })
     }
 
@@ -179,66 +161,113 @@ impl Player {
             media: self.media.clone(),
             volume: self.volume,
             looping: self.looping,
-            loop_length: self.loop_length,
+            loop_gap: self.loop_gap,
             delay_length: self.delay_length,
-            take_length: self.take_length,
-            skip_length: self.skip_length,
+            cut_end: self.cut_end,
+            cut_start: self.cut_start,
         }
     }
 
     pub fn from_serializable(player: &Serializable) -> Result<Self, Error> {
         let audio = Audio::new(&player.media)?;
-        let length = audio.source.total_duration().clone();
+        let length = audio.source.total_duration().unwrap();
 
         let mut new_player = Self {
             audio,
             media: player.media.clone(),
             last_time_poll: None,
             time_at_last_poll: Duration::from_secs(0),
-            should_restart: false,
             name: player.name.clone(),
-            length,
+            base_length: length,
             group: player.group.clone(),
             playing: false,
             paused: false,
             volume: player.volume,
             looping: player.looping,
-            loop_length: player.loop_length,
+            loop_gap: player.loop_gap,
             delay_length: player.delay_length,
-            take_length: player.take_length,
-            skip_length: player.skip_length,
+            cut_end: player.cut_end,
+            cut_start: player.cut_start,
         };
         new_player.volume(player.volume);
         Ok(new_player)
     }
 
-    as_builder! {
-        pub fn set_delay(&mut self, delay: Duration) {
-            self.delay_length = delay;
-            self.should_restart = true;
+    pub fn set_delay(&mut self, delay: Duration) -> Result<(), Error> {
+        let mut start_at = Duration::from_secs(0);
+        if self.last_time_poll.is_some() {
+            let play_time = self.get_looped_play_time();
+            if let Some(play_time) = play_time {
+                start_at = play_time + delay;
+            } else {
+                start_at = self.get_play_time().min(delay);
+            }
         }
-
-        pub fn skip_duration(&mut self, skip: Duration) {
-            self.skip_length = skip;
-            self.should_restart = true;
-        }
-
-        pub fn take_duration(&mut self, take: Option<Duration>) {
-            self.take_length = take;
-            self.should_restart = true;
-        }
-
-        pub fn toggle_loop(&mut self, looping: bool) {
-            self.looping = looping;
-        }
-
-        pub fn loop_length(&mut self, length: Option<Duration>){
-            self.loop_length = length;
-        }
+        self.delay_length = delay;
+        self.apply_settings(false, start_at)
     }
 
-    fn apply_settings_internal(&mut self, play_if_not_playing: bool) -> Result<(), Error> {
-        let start_immediately = self.get_is_playing() || play_if_not_playing;
+    pub fn cut_start(&mut self, cut: Duration) -> Result<(), Error> {
+        let mut start_at = Duration::from_secs(0);
+        if self.last_time_poll.is_some() {
+            let play_time = self.get_looped_play_time();
+            if let Some(play_time) = play_time {
+                if play_time < cut {
+                    start_at = cut + self.delay_length
+                } else {
+                    start_at = (play_time - (cut - self.cut_start)) + self.delay_length;
+                }
+            } else {
+                start_at = self.get_play_time();
+            }
+        }
+        self.cut_start = cut;
+        self.apply_settings(false, start_at)
+    }
+
+    pub fn cut_end(&mut self, cut: Duration) -> Result<(), Error> {
+        let mut start_at = Duration::from_secs(0);
+        if self.last_time_poll.is_some() {
+            let play_time = self.get_looped_play_time();
+            if let Some(play_time) = play_time {
+                let cut_location = self.base_length - cut - self.cut_start;
+                let end_location = self.base_length - self.cut_end - self.cut_start;
+                if cut_location < end_location
+                    && play_time > cut_location
+                    && play_time < end_location
+                {
+                    start_at = cut_location + self.delay_length
+                } else if cut_location > end_location && play_time > end_location {
+                    start_at = play_time + self.delay_length + (cut_location - end_location);
+                } else {
+                    start_at = play_time + self.delay_length
+                }
+            } else {
+                start_at = self.get_play_time();
+            }
+        }
+        self.cut_end = cut;
+        self.apply_settings(false, start_at)
+    }
+
+    pub fn toggle_loop(&mut self, looping: bool, length: Duration) -> Result<(), Error> {
+        let mut start_at = Duration::from_secs(0);
+        if self.last_time_poll.is_some() {
+            let play_time = self.get_looped_play_time();
+            if let Some(play_time) = play_time {
+                start_at = (play_time + self.delay_length)
+                    .min(self.get_length() + (length - self.loop_gap));
+            } else {
+                start_at = self.get_play_time();
+            }
+        }
+        self.looping = looping;
+        self.loop_gap = length;
+        self.apply_settings(false, start_at)
+    }
+
+    fn apply_settings(&self, play_if_not_playing: bool, start_at: Duration) -> Result<(), Error> {
+        let was_playing = self.get_is_playing();
 
         let audio = &self.audio;
         if !audio.sink.empty() {
@@ -247,61 +276,39 @@ impl Player {
 
         let decoder = self.audio.source.clone();
 
-        let play_time = self.get_play_time();
-        let start_at = if let Some(length) = self.length {
-            duration_rem(play_time, length)
-        } else {
-            play_time
-        };
-
         optional!(
-            self.take_length.is_some() && self.take_length.unwrap() > Duration::from_secs(0) && (
-                !self.looping || self.loop_length.is_none() || (
-                    self.loop_length.is_some() &&
-                    self.take_length.unwrap() < self.loop_length.unwrap()
-                )
-            ),
-            let decoder = decoder.take_duration(self.take_length.unwrap()),
+            self.cut_end > Duration::from_secs(0),
+            let decoder = decoder.take_duration(self.base_length - self.cut_end),
         optional!(
-            self.skip_length > Duration::from_secs(0),
-            let decoder = decoder.skip_duration(self.skip_length),
+            self.cut_start > Duration::from_secs(0),
+            let decoder = decoder.skip_duration(self.cut_start),
         optional!(
-            self.looping && self.loop_length.is_some(),
+            self.looping && self.loop_gap > Duration::from_secs(0),
             let decoder = {
+                let to_take = decoder.total_duration().unwrap() + self.loop_gap;
                 let silence: Zero<i16> = Zero::new(decoder.channels(), decoder.sample_rate());
                 let decoder_padded = decoder.mix(silence);
-                decoder_padded.take_duration(self.loop_length.unwrap())
+                decoder_padded.take_duration(to_take)
             },
         optional!(
             self.looping,
             let decoder = decoder.repeat_infinite(),
         optional!(
-            start_at > Duration::from_secs(0) && !self.should_restart,
-            let decoder = decoder.skip_duration(start_at),
-        optional!(
             self.delay_length > Duration::from_secs(0),
             let decoder = decoder.delay(self.delay_length),
+        optional!(
+            start_at > Duration::from_secs(0),
+            let decoder = decoder.skip_duration(start_at),
         audio.sink.append(decoder)
         ))))));
 
-        self.should_restart = false;
-
-        if start_immediately {
+        if was_playing || play_if_not_playing {
             audio.sink.play();
         } else {
             audio.sink.pause();
         }
 
         Ok(())
-    }
-
-    pub fn apply_settings(mut self, play_if_not_playing: bool) -> Result<Self, Error> {
-        self.apply_settings_in_place(play_if_not_playing)?;
-        Ok(self)
-    }
-
-    pub fn apply_settings_in_place(&mut self, play_if_not_playing: bool) -> Result<(), Error> {
-        self.apply_settings_internal(play_if_not_playing)
     }
 
     //TODO: an implementation of get_play_time() which relies on the play data, instead of the time crate
@@ -312,6 +319,22 @@ impl Player {
             self.time_at_last_poll
         } else {
             Duration::from_secs(0)
+        }
+    }
+
+    fn get_length(&self) -> Duration {
+        self.base_length - (self.cut_start + self.cut_end) + self.loop_gap
+    }
+
+    pub fn get_looped_play_time(&self) -> Option<Duration> {
+        let play_time = self.get_play_time();
+        if play_time > self.delay_length {
+            Some(duration_rem(
+                self.get_play_time() - self.delay_length,
+                self.get_length(),
+            ))
+        } else {
+            None
         }
     }
 
@@ -336,7 +359,7 @@ impl Player {
             self.audio.sink.play();
         } else {
             self.time_at_last_poll = Duration::from_secs(0);
-            self.apply_settings_in_place(true)?;
+            self.apply_settings(true, Duration::from_secs(0))?;
         }
         self.playing = true;
         self.paused = false;
@@ -383,15 +406,12 @@ fn player_functionality() {
     )
     .unwrap();
     println!("delay");
-    player.set_delay(Duration::from_secs(3));
+    player.set_delay(Duration::from_secs(3)).unwrap();
     println!("play");
     player.play().unwrap();
     std::thread::sleep(Duration::from_secs(6));
     println!("apply settings test");
-    player = player
-        .set_delay_and(Duration::from_secs(0))
-        .apply_settings(false)
-        .unwrap();
+    player.set_delay(Duration::from_secs(0)).unwrap();
     std::thread::sleep(Duration::from_secs(3));
     println!("stop");
     player.stop();
@@ -400,12 +420,8 @@ fn player_functionality() {
     player.play().unwrap();
     std::thread::sleep(Duration::from_secs(3));
     println!("toggle loop");
-    player = player
-        .skip_duration_and(Duration::from_secs(5))
-        .loop_length_and(Some(Duration::from_secs(15)))
-        .toggle_loop_and(true)
-        .apply_settings(false)
-        .unwrap();
+    player.cut_start(Duration::from_secs(5)).unwrap();
+    player.toggle_loop(true, Duration::from_secs(5)).unwrap();
     player.play().unwrap();
     std::thread::sleep(Duration::from_secs_f32(17.5));
     println!("pause");
