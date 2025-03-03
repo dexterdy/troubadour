@@ -238,8 +238,8 @@ impl Player {
             ),
             let decoder = decoder.take_duration(self.take_length.unwrap()),
         optional!(
-            self.skip_length > Duration::from_secs(0),
-            let decoder = decoder.skip_duration(self.skip_length),
+            self.skip_length > Duration::from_secs(0) || start_at > Duration::from_secs(0),
+            let decoder = decoder.skip_duration(self.skip_length + start_at),
         optional!(
             self.looping && self.loop_length.is_some(),
             let decoder = {
@@ -249,14 +249,12 @@ impl Player {
             },
         optional!(
             self.looping,
-            let decoder = {decoder.repeat_infinite()},
-        optional!(start_at > self.skip_length,
-            let decoder = decoder.skip_duration(start_at - self.skip_length),
+            let decoder = decoder.repeat_infinite(),
         optional!(
             self.delay_length > Duration::from_secs(0),
             let decoder = decoder.delay(self.delay_length),
         audio.sink.append(decoder)
-        ))))));
+        )))));
 
         if !is_empty {
             audio.sink.skip_one();

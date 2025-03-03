@@ -8,10 +8,10 @@ license = "GPL-3.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rodio = "0.17.3"
+rodio = "0.20.1"
 paste = "1.0.14"
-serde_json = "1.0.109"
-serde = { version = "1.0.193", features = ["derive"] }
-indexmap = { version = "2.2.6", features = ["serde"] }
-thiserror = "2.0.11"
-anyhow = "1.0.96"
+serde_json = "1.0.140"
+serde = { version = "1.0.218", features = ["derive"] }
+indexmap = { version = "2.7.1", features = ["serde"] }
+thiserror = "2.0.12"
+anyhow = "1.0.97"
