@@ -1,11 +1,13 @@
 #![allow(dead_code)]
 
 use paste::item;
-use rodio::{source::Zero, Decoder, OutputStream, OutputStreamHandle, Sink, Source};
+use rodio::{
+    source::{Buffered, Zero},
+    Decoder, OutputStream, OutputStreamHandle, Sink, Source,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
-    io::BufReader,
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -29,10 +31,11 @@ struct Audio {
     stream: OutputStream,
     handle: OutputStreamHandle,
     sink: Sink,
+    source: Buffered<Decoder<File>>,
 }
 
 impl Audio {
-    fn new(media: &PathBuf) -> Result<(Self, Option<Duration>), Error> {
+    fn new(media: &PathBuf) -> Result<Self, Error> {
         let (stream, handle) = OutputStream::try_default().map_err(|e| Error {
             msg: "error: failed to set up your audio device.".to_string(),
             variant: ErrorVariant::AudioDeviceSetupFailed,
@@ -44,17 +47,25 @@ impl Audio {
             source: Some(e.into()),
         })?;
 
-        // This is just for checking whether there are any errors with loading the file and decoding it
-        let d = new_decoder(media)?;
+        let file = File::open(&media)
+            .map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?;
+        let source = Decoder::new(file)
+            .map_err(|e| {
+                Error {
+                    msg: "error: cannot play file. The format might not be supported, or the data is corrupt."
+                        .to_string(),
+                    variant: ErrorVariant::DecoderFailed,
+                    source: Some(e.into()),
+                }
+            })?
+            .buffered();
 
-        Ok((
-            Self {
-                stream,
-                handle,
-                sink,
-            },
-            d.total_duration(),
-        ))
+        Ok(Self {
+            stream,
+            handle,
+            sink,
+            source,
+        })
     }
 }
 
@@ -114,7 +125,9 @@ macro_rules! as_builder {
 
 impl Player {
     pub fn new(media: PathBuf, name: String) -> Result<Self, Error> {
-        let (audio, length) = Audio::new(&media)?;
+        let audio = Audio::new(&media)?;
+        let length = audio.source.total_duration().clone();
+
         Ok(Self {
             audio,
             media,
@@ -136,7 +149,8 @@ impl Player {
     }
 
     pub fn copy(&self, new_name: &str) -> Result<Self, Error> {
-        let (audio, length) = Audio::new(&self.media)?;
+        let audio = Audio::new(&self.media)?;
+        let length = audio.source.total_duration().clone();
 
         Ok(Self {
             audio,
@@ -173,7 +187,8 @@ impl Player {
     }
 
     pub fn from_serializable(player: &Serializable) -> Result<Self, Error> {
-        let (audio, length) = Audio::new(&player.media)?;
+        let audio = Audio::new(&player.media)?;
+        let length = audio.source.total_duration().clone();
 
         let mut new_player = Self {
             audio,
@@ -230,7 +245,7 @@ impl Player {
             audio.sink.skip_one();
         }
 
-        let decoder = new_decoder(&self.media)?;
+        let decoder = self.audio.source.clone();
 
         let play_time = self.get_play_time();
         let start_at = if let Some(length) = self.length {
@@ -354,18 +369,6 @@ impl Player {
         );
         self.audio.sink.set_volume(real_volume);
     }
-}
-
-fn new_decoder(media: &PathBuf) -> Result<Decoder<BufReader<File>>, Error> {
-    let source = BufReader::new(
-        File::open(&media).map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?,
-    );
-    Decoder::new(source).map_err(|e| Error {
-        msg: "error: cannot play file. The format might not be supported, or the data is corrupt."
-            .to_string(),
-        variant: ErrorVariant::DecoderFailed,
-        source: Some(e.into()),
-    })
 }
 
 fn duration_rem(a: Duration, b: Duration) -> Duration {
