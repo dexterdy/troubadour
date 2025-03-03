@@ -114,10 +114,10 @@ pub fn player_to_string(player: &Player) -> String {
             }
         }
         if player.cut_start > Duration::new(0, 0) {
-            "\n\t\tstart cut: " (duration_to_string(player.cut_start, false))
+            "\n\tstart cut: " (duration_to_string(player.cut_start, false))
         }
         if player.cut_end > Duration::from_secs(0) {
-                "\n\tend cut: " (duration_to_string(player.cut_end, false))
+            "\n\tend cut: " (duration_to_string(player.cut_end, false))
         }
         if player.delay_length > Duration::new(0, 0) {
             "\n\tdelay: "  (duration_to_string(player.delay_length, false))

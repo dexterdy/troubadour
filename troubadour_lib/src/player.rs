@@ -255,8 +255,14 @@ impl Player {
         if self.last_time_poll.is_some() {
             let play_time = self.get_looped_play_time();
             if let Some(play_time) = play_time {
-                start_at = (play_time + self.delay_length)
-                    .min(self.get_length() + (length - self.loop_gap));
+                start_at = (play_time + self.delay_length).min(
+                    self.get_length()
+                        + (if looping {
+                            length
+                        } else {
+                            Duration::from_secs(0)
+                        } - self.loop_gap),
+                );
             } else {
                 start_at = self.get_play_time();
             }
@@ -430,4 +436,12 @@ fn player_functionality() {
     println!("play");
     player.play().unwrap();
     std::thread::sleep(Duration::from_secs(3));
+}
+
+#[test]
+fn duration_rem_test() {
+    let play_time = Duration::from_secs_f64(23.0);
+    let length = Duration::from_secs_f64(12.0);
+    let looped_time = duration_rem(play_time, length);
+    assert_eq!(looped_time, Duration::from_secs(11))
 }

@@ -159,8 +159,7 @@ impl AppState {
         duration: Option<Duration>,
     ) -> Result<RespondResult, Error> {
         apply_selection(self, ids, group_ids, |p| {
-            p.toggle_loop(true, duration.unwrap_or(Duration::from_secs(0)));
-            Ok(())
+            p.toggle_loop(true, duration.unwrap_or(Duration::from_secs(0)))
         })?;
 
         Ok(RespondResult {
@@ -173,10 +172,7 @@ impl AppState {
         ids: &Vec<String>,
         group_ids: &Vec<String>,
     ) -> Result<RespondResult, Error> {
-        apply_selection(self, ids, group_ids, |p| {
-            p.toggle_loop(false, p.loop_gap);
-            Ok(())
-        })?;
+        apply_selection(self, ids, group_ids, |p| p.toggle_loop(false, p.loop_gap))?;
 
         Ok(RespondResult {
             mutated: true,
@@ -190,10 +186,7 @@ impl AppState {
         group_ids: &Vec<String>,
         duration: Duration,
     ) -> Result<RespondResult, Error> {
-        apply_selection(self, ids, group_ids, |p| {
-            p.cut_start(duration);
-            Ok(())
-        })?;
+        apply_selection(self, ids, group_ids, |p| p.cut_start(duration))?;
 
         Ok(RespondResult {
             mutated: true,
@@ -207,10 +200,7 @@ impl AppState {
         group_ids: &Vec<String>,
         duration: Duration,
     ) -> Result<RespondResult, Error> {
-        apply_selection(self, ids, group_ids, |p| {
-            p.cut_end(duration);
-            Ok(())
-        })?;
+        apply_selection(self, ids, group_ids, |p| p.cut_end(duration))?;
 
         Ok(RespondResult {
             mutated: true,
@@ -224,10 +214,7 @@ impl AppState {
         group_ids: &Vec<String>,
         duration: Duration,
     ) -> Result<RespondResult, Error> {
-        apply_selection(self, ids, group_ids, |p| {
-            p.set_delay(duration);
-            Ok(())
-        })?;
+        apply_selection(self, ids, group_ids, |p| p.set_delay(duration))?;
 
         Ok(RespondResult {
             mutated: true,
