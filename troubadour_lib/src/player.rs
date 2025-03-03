@@ -5,7 +5,7 @@ use rodio::{source::Zero, Decoder, OutputStream, OutputStreamHandle, Sink, Sourc
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
-    io::{Cursor, Read},
+    io::BufReader,
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -25,8 +25,11 @@ pub struct Serializable {
     skip_length: Duration,
 }
 
-fn new_decoder(src: Cursor<Vec<u8>>) -> Result<Decoder<Cursor<Vec<u8>>>, Error> {
-    Decoder::new(src).map_err(|e| Error {
+fn new_decoder(media: &PathBuf) -> Result<Decoder<BufReader<File>>, Error> {
+    let source = BufReader::new(
+        File::open(&media).map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?,
+    );
+    Decoder::new(source).map_err(|e| Error {
         msg: "error: cannot play file. The format might not be supported, or the data is corrupt."
             .to_string(),
         variant: ErrorVariant::DecoderFailed,
@@ -38,7 +41,6 @@ struct Audio {
     stream: OutputStream,
     handle: OutputStreamHandle,
     sink: Sink,
-    source: Cursor<Vec<u8>>,
 }
 
 impl Audio {
@@ -54,21 +56,13 @@ impl Audio {
             source: Some(e.into()),
         })?;
 
-        let mut source = vec![];
-        File::open(&media)
-            .map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?
-            .read_to_end(&mut source)
-            .map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?;
-        let source = Cursor::new(source);
-
         // This is just for checking whether there are any errors with loading the file and decoding it
-        let _ = new_decoder(source.clone())?;
+        let _ = new_decoder(&media)?;
 
         Ok(Self {
             stream,
             handle,
             sink,
-            source,
         })
     }
 }
@@ -232,7 +226,7 @@ impl Player {
         start_at: Duration,
     ) -> Result<(), Error> {
         let audio = &self.audio;
-        let decoder = new_decoder(audio.source.clone())?;
+        let decoder = new_decoder(&self.media)?;
         let is_empty = audio.sink.empty();
 
         optional!(
