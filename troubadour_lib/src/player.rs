@@ -193,13 +193,62 @@ impl Player {
         Ok(new_player)
     }
 
+    pub fn play(&mut self) -> Result<(), Error> {
+        if self.get_is_playing() {
+            return Ok(());
+        }
+        self.last_time_poll = Some(Instant::now());
+        if self.get_is_paused() {
+            self.audio.sink.play();
+        } else {
+            self.time_at_last_poll = Duration::from_secs(0);
+            self.apply_settings(true, Duration::from_secs(0))?;
+        }
+        self.playing = true;
+        self.paused = false;
+        Ok(())
+    }
+
+    pub fn pause(&mut self) {
+        if self.get_is_playing() {
+            self.time_at_last_poll = self.get_play_time();
+            self.last_time_poll = Some(Instant::now());
+            self.audio.sink.pause();
+            self.paused = true;
+            self.playing = false;
+        }
+    }
+
+    pub fn stop(&mut self) {
+        self.playing = false;
+        self.paused = false;
+        self.last_time_poll = None;
+        self.time_at_last_poll = Duration::from_secs(0);
+        self.audio.sink.clear();
+    }
+
+    pub fn volume(&mut self, volume: u32) {
+        self.volume = volume;
+        let real_volume = f32::powf(
+            2.0,
+            f32::sqrt(f32::sqrt(f32::sqrt(volume as f32 / 100.0))).mul_add(192.0, -192.0) / 6.0,
+        );
+        self.audio.sink.set_volume(real_volume);
+    }
+
+    // The functions `set_delay`, `cut_start`, `cut_end` and `toggle_loop` can modify
+    // starting and ending points of the loop/sound. They include logic to adjust the
+    // play head so that it lines up with where the player left off before the adjustment
+
     pub fn set_delay(&mut self, delay: Duration) -> Result<(), Error> {
         let mut start_at = Duration::from_secs(0);
         if self.last_time_poll.is_some() {
             let play_time = self.get_looped_play_time();
             if let Some(play_time) = play_time {
+                // past prev delay. Add own delay
                 start_at = play_time + delay;
             } else {
+                // not past delay. Prevent overshooting new delay
                 start_at = self.get_play_time().min(delay);
             }
         }
@@ -213,11 +262,14 @@ impl Player {
             let play_time = self.get_looped_play_time();
             if let Some(play_time) = play_time {
                 if play_time < cut {
+                    // play head inside cut. move play head to new start of sound
                     start_at = cut + self.delay_length
                 } else {
+                    // adjust play head to line up with new time marks
                     start_at = (play_time - (cut - self.cut_start)) + self.delay_length;
                 }
             } else {
+                // not past delay
                 start_at = self.get_play_time();
             }
         }
@@ -236,13 +288,17 @@ impl Player {
                     && play_time > cut_location
                     && play_time < end_location
                 {
+                    // play head in cut. move play head to new end of sound
                     start_at = cut_location + self.delay_length
                 } else if cut_location > end_location && play_time > end_location {
+                    // play head after cut, adjust play head to line up with new time marks
                     start_at = play_time + self.delay_length + (cut_location - end_location);
                 } else {
+                    // play head before cut, nothing to adjust
                     start_at = play_time + self.delay_length
                 }
             } else {
+                // not past delay
                 start_at = self.get_play_time();
             }
         }
@@ -255,8 +311,9 @@ impl Player {
         if self.last_time_poll.is_some() {
             let play_time = self.get_looped_play_time();
             if let Some(play_time) = play_time {
+                // prevent overshooting new loop gap
                 start_at = (play_time + self.delay_length).min(
-                    self.get_length()
+                    self.get_loop_length()
                         + (if looping {
                             length
                         } else {
@@ -264,12 +321,51 @@ impl Player {
                         } - self.loop_gap),
                 );
             } else {
+                // not past delay
                 start_at = self.get_play_time();
             }
         }
         self.looping = looping;
         self.loop_gap = length;
         self.apply_settings(false, start_at)
+    }
+
+    pub fn get_play_time(&self) -> Duration {
+        if self.get_is_playing() && self.last_time_poll.is_some() {
+            self.time_at_last_poll + self.last_time_poll.unwrap().elapsed()
+        } else if !self.get_is_playing() && self.get_is_paused() {
+            self.time_at_last_poll
+        } else {
+            Duration::from_secs(0)
+        }
+    }
+
+    pub fn get_loop_length(&self) -> Duration {
+        self.base_length - (self.cut_start + self.cut_end) + self.loop_gap
+    }
+
+    /// Calculates the remainder of play time divided by loop length.
+    /// Will return `None` when the player is stopped or still in delay.
+    pub fn get_looped_play_time(&self) -> Option<Duration> {
+        let play_time = self.get_play_time();
+        if play_time > self.delay_length {
+            Some(duration_rem(
+                self.get_play_time() - self.delay_length,
+                self.get_loop_length(),
+            ))
+        } else {
+            None
+        }
+    }
+
+    /// Checks whether the player is paused, based on the player and sink states.
+    pub fn get_is_paused(&self) -> bool {
+        self.paused && !self.audio.sink.empty() && !self.playing && self.audio.sink.is_paused()
+    }
+
+    /// Checks whether the player is playing, based on the player and sink states.
+    pub fn get_is_playing(&self) -> bool {
+        self.playing && !self.audio.sink.empty() && !self.paused && !self.audio.sink.is_paused()
     }
 
     fn apply_settings(&self, play_if_not_playing: bool, start_at: Duration) -> Result<(), Error> {
@@ -315,88 +411,6 @@ impl Player {
         }
 
         Ok(())
-    }
-
-    //TODO: an implementation of get_play_time() which relies on the play data, instead of the time crate
-    pub fn get_play_time(&self) -> Duration {
-        if self.get_is_playing() && self.last_time_poll.is_some() {
-            self.time_at_last_poll + self.last_time_poll.unwrap().elapsed()
-        } else if !self.get_is_playing() && self.get_is_paused() {
-            self.time_at_last_poll
-        } else {
-            Duration::from_secs(0)
-        }
-    }
-
-    fn get_length(&self) -> Duration {
-        self.base_length - (self.cut_start + self.cut_end) + self.loop_gap
-    }
-
-    pub fn get_looped_play_time(&self) -> Option<Duration> {
-        let play_time = self.get_play_time();
-        if play_time > self.delay_length {
-            Some(duration_rem(
-                self.get_play_time() - self.delay_length,
-                self.get_length(),
-            ))
-        } else {
-            None
-        }
-    }
-
-    pub fn get_is_paused(&self) -> bool {
-        self.paused && !self.audio.sink.empty() && !self.playing && self.audio.sink.is_paused()
-    }
-
-    pub fn get_is_playing(&self) -> bool {
-        self.playing && !self.audio.sink.empty() && !self.paused && !self.audio.sink.is_paused()
-    }
-
-    pub fn play(&mut self) -> Result<(), Error> {
-        if self.get_is_playing() {
-            return Err(Error {
-                msg: format!("error: player {} is already playing", self.name),
-                variant: ErrorVariant::OperationFailed,
-                source: None,
-            });
-        }
-        self.last_time_poll = Some(Instant::now());
-        if self.get_is_paused() {
-            self.audio.sink.play();
-        } else {
-            self.time_at_last_poll = Duration::from_secs(0);
-            self.apply_settings(true, Duration::from_secs(0))?;
-        }
-        self.playing = true;
-        self.paused = false;
-        Ok(())
-    }
-
-    pub fn pause(&mut self) {
-        if self.get_is_playing() {
-            self.time_at_last_poll = self.get_play_time();
-            self.last_time_poll = Some(Instant::now());
-            self.audio.sink.pause();
-            self.paused = true;
-            self.playing = false;
-        }
-    }
-
-    pub fn stop(&mut self) {
-        self.playing = false;
-        self.paused = false;
-        self.last_time_poll = None;
-        self.time_at_last_poll = Duration::from_secs(0);
-        self.audio.sink.clear();
-    }
-
-    pub fn volume(&mut self, volume: u32) {
-        self.volume = volume;
-        let real_volume = f32::powf(
-            2.0,
-            f32::sqrt(f32::sqrt(f32::sqrt(volume as f32 / 100.0))).mul_add(192.0, -192.0) / 6.0,
-        );
-        self.audio.sink.set_volume(real_volume);
     }
 }
 
