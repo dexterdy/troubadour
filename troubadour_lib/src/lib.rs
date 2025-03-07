@@ -94,6 +94,70 @@ impl AppState {
         })
     }
 
+    pub fn copy(
+        &mut self,
+        ids: &Vec<String>,
+        group_ids: &Vec<String>,
+    ) -> Result<RespondResult, Error> {
+        validate_selection(self, ids, group_ids)?;
+
+        let get_new_player = |state: &AppState, id: String| {
+            let p = state.players.get(&id).unwrap();
+            let mut new_name = format!("{}(2)", p.name).clone();
+            let mut copy_number = 3;
+            while state.players.contains_key(&new_name) {
+                new_name = format!("{}({})", p.name, copy_number);
+                copy_number += 1;
+            }
+            p.copy(&new_name)
+        };
+
+        let mut unique_groups = group_ids.clone();
+        unique_groups.sort();
+        unique_groups.dedup();
+
+        for group_id in unique_groups {
+            let mut new_name = format!("{}(2)", group_id).clone();
+            let mut copy_number = 3;
+            while self.groups.contains_key(&new_name) {
+                new_name = format!("{}({})", group_id, copy_number);
+                copy_number += 1;
+            }
+            let group_players = self.groups.get(&group_id).unwrap();
+            let mut new_group_players = IndexSet::new();
+            for p_id in group_players {
+                let mut new_p = get_new_player(self, p_id.clone())?;
+                new_group_players.insert(new_p.name.clone());
+                new_p.group = Some(new_name.clone());
+                self.players.insert(new_p.name.clone(), new_p);
+            }
+            self.groups.insert(new_name, new_group_players);
+        }
+
+        let mut unique_ids = ids.clone();
+        unique_ids.sort();
+        unique_ids.dedup();
+
+        for id in unique_ids {
+            let new_p = get_new_player(self, id)?;
+            let part_of_group = new_p
+                .group
+                .clone()
+                .and_then(|group_name| self.groups.get_mut(&group_name))
+                .map(|group| group.insert(new_p.name.clone()))
+                .is_some();
+            if !part_of_group {
+                self.top_group.insert(new_p.name.clone());
+            }
+            self.players.insert(new_p.name.clone(), new_p);
+        }
+
+        Ok(RespondResult {
+            mutated: true,
+            saved: false,
+        })
+    }
+
     pub fn play(
         &mut self,
         ids: &Vec<String>,
@@ -161,7 +225,6 @@ impl AppState {
         apply_selection(self, ids, group_ids, |p| {
             p.toggle_loop(true, duration.unwrap_or(Duration::from_secs(0)))
         })?;
-
         Ok(RespondResult {
             mutated: true,
             saved: false,
@@ -173,7 +236,6 @@ impl AppState {
         group_ids: &Vec<String>,
     ) -> Result<RespondResult, Error> {
         apply_selection(self, ids, group_ids, |p| p.toggle_loop(false, p.loop_gap))?;
-
         Ok(RespondResult {
             mutated: true,
             saved: false,
@@ -187,7 +249,6 @@ impl AppState {
         duration: Duration,
     ) -> Result<RespondResult, Error> {
         apply_selection(self, ids, group_ids, |p| p.cut_start(duration))?;
-
         Ok(RespondResult {
             mutated: true,
             saved: false,
@@ -201,7 +262,6 @@ impl AppState {
         duration: Duration,
     ) -> Result<RespondResult, Error> {
         apply_selection(self, ids, group_ids, |p| p.cut_end(duration))?;
-
         Ok(RespondResult {
             mutated: true,
             saved: false,
@@ -215,7 +275,6 @@ impl AppState {
         duration: Duration,
     ) -> Result<RespondResult, Error> {
         apply_selection(self, ids, group_ids, |p| p.set_delay(duration))?;
-
         Ok(RespondResult {
             mutated: true,
             saved: false,
@@ -398,12 +457,11 @@ fn validate_selection(
     Ok(())
 }
 
-fn apply_selection(
-    state: &mut AppState,
+fn get_selection(
+    state: &AppState,
     ids: &Vec<String>,
     group_ids: &Vec<String>,
-    callback: impl Fn(&mut Player) -> Result<(), Error>,
-) -> Result<(), Error> {
+) -> Result<Vec<String>, Error> {
     validate_selection(state, ids, group_ids)?;
     let mut selection = HashSet::new();
 
@@ -430,6 +488,18 @@ fn apply_selection(
             })?);
         }
     }
+
+    Ok(selection.into_iter().collect())
+}
+
+fn apply_selection(
+    state: &mut AppState,
+    ids: &Vec<String>,
+    group_ids: &Vec<String>,
+    mut callback: impl FnMut(&mut Player) -> Result<(), Error>,
+) -> Result<(), Error> {
+    validate_selection(state, ids, group_ids)?;
+    let selection = get_selection(state, ids, group_ids)?;
 
     for id in selection {
         callback(state.players.get_mut(&id).unwrap())?;

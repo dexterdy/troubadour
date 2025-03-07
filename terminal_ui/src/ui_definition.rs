@@ -5,6 +5,7 @@ use std::{path::PathBuf, time::Duration};
 
 const ADD_USAGE: &str = "add -p <PATH> -n <NAME>";
 const REMOVE_USAGE: &str = "remove [IDs]";
+const COPY_USAGE: &str = "copy [IDs] [-g <GROUPS>]";
 const SHOW_USAGE: &str = "show [IDs] [-g <GROUPS>]";
 const PLAY_USAGE: &str = "play [IDs] [-g <GROUPS>]";
 const STOP_USAGE: &str = "stop [IDs] [-g <GROUPS>]";
@@ -26,6 +27,7 @@ const ABOUT_ADD: &str = "Adds a sound to the soundscape.";
 const ABOUT_ADD_LONG: &str =
     "Adds a sound to the soundscape. Added sounds will not start playing until you call play.";
 const ABOUT_REMOVE: &str = "Removes sounds from the soundscape.";
+const ABOUT_COPY: &str = "Copies sounds and their settings";
 const ABOUT_VOLUME: &str = "Sets the volume as a percentage. Can be higher than 100%";
 const ABOUT_SHOW: &str = "Shows the status and configuration of sounds.";
 const ABOUT_PLAY: &str = "Plays sounds.";
@@ -53,6 +55,8 @@ const USAGE: &str = formatcp!(
 \t{ADD_USAGE}\n\t\t{ABOUT_ADD}
 
 \t{REMOVE_USAGE}\n\t\t{ABOUT_REMOVE}
+
+\t{COPY_USAGE}\n\t\t{ABOUT_COPY}
 
 \t{SHOW_USAGE}\n\t\t{ABOUT_SHOW}
 
@@ -127,7 +131,13 @@ build! {
     },
     #[command(override_usage=REMOVE_USAGE, about=ABOUT_REMOVE)]
     Remove {
+        ids: Vec<String>
+    },
+    #[command(override_usage=COPY_USAGE, about=format!("{ABOUT_COPY} {NO_ID_ADDENDUM}"))]
+    Copy {
         ids: Vec<String>,
+        #[arg(long, short)]
+        groups: Vec<String>
     },
     #[command(override_usage=PLAY_USAGE, about=format!("{ABOUT_PLAY} {NO_ID_ADDENDUM}"))]
     Play {
@@ -203,23 +213,23 @@ build! {
     Group {
         #[arg(long, short)]
         group: String,
-        ids: Vec<String>,
+        ids: Vec<String>
     },
     #[command(override_usage=UNGROUP_USAGE, about=ABOUT_UNGROUP)]
     Ungroup {
         #[arg(long, short)]
         group: String,
-        ids: Vec<String>,
+        ids: Vec<String>
     },
     #[command(override_usage=SAVE_USAGE, about=ABOUT_SAVE)]
     Save {
         #[arg(long, short)]
-        path: PathBuf,
+        path: PathBuf
     },
     #[command(override_usage=LOAD_USAGE, about=ABOUT_LOAD)]
     Load {
         #[arg(long, short)]
-        path: PathBuf,
+        path: PathBuf
     },
     #[command(about=ABOUT_EXIT)]
     Exit

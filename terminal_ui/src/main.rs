@@ -115,6 +115,7 @@ fn respond(
                 })
             }
         }
+        Commands::Copy { ids, groups } => Ok(to_internal(state.copy(&ids, &groups)?)),
         Commands::Play { ids, groups } => {
             let res = Ok(to_internal(state.play(&ids, &groups)?));
             show_selection(state, &ids, &groups)?;
