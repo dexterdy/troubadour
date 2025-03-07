@@ -138,6 +138,10 @@ impl AppState {
         unique_ids.sort();
         unique_ids.dedup();
 
+        if ids.is_empty() && group_ids.is_empty() && !self.top_group.is_empty() {
+            unique_ids.push(self.top_group.last().unwrap().clone());
+        }
+
         for id in unique_ids {
             let new_p = get_new_player(self, id)?;
             let part_of_group = new_p
