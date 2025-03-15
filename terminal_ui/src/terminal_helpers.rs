@@ -7,7 +7,8 @@ use rustyline::history::FileHistory;
 use rustyline::Editor;
 use std::time::Duration;
 use troubadour_lib::player::Player;
-use troubadour_lib::AppState;
+
+use crate::AppState;
 
 pub fn readline(prompt: &str, rl: &mut Editor<(), FileHistory>) -> Result<String, Error> {
     let line = rl.readline(&format!("{prompt} "));

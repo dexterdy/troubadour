@@ -14,7 +14,7 @@ use std::{
 use crate::error::{convert_read_file_error, Error, ErrorVariant, FileKind};
 
 #[derive(Serialize, Deserialize)]
-pub struct Serializable {
+pub(crate) struct Serializable {
     media: PathBuf,
     name: String,
     group: Option<String>,
@@ -154,7 +154,7 @@ impl Player {
         })
     }
 
-    pub fn to_serializable(&self) -> Serializable {
+    pub(crate) fn to_serializable(&self) -> Serializable {
         Serializable {
             name: self.name.clone(),
             group: self.group.clone(),
@@ -168,7 +168,7 @@ impl Player {
         }
     }
 
-    pub fn from_serializable(player: &Serializable) -> Result<Self, Error> {
+    pub(crate) fn from_serializable(player: &Serializable) -> Result<Self, Error> {
         let audio = Audio::new(&player.media)?;
         let length = audio.source.total_duration().unwrap();
 

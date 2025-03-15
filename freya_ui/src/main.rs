@@ -1,15 +1,24 @@
-use std::path::PathBuf;
+use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 
+use anyhow::Error;
 use freya::prelude::*;
+use indexmap::{IndexMap, IndexSet};
 use rfd::AsyncFileDialog;
-use troubadour_lib::AppState;
+use troubadour_lib::player::Player;
+
+#[derive(Default)]
+pub struct AppState {
+    pub players: HashMap<String, Rc<RefCell<Player>>>,
+    pub top_group: IndexSet<String>,
+    pub groups: IndexMap<String, IndexSet<String>>,
+}
 
 fn main() {
     launch(app);
 }
 
 fn app() -> Element {
-    let state = use_signal(|| AppState::new());
+    let state = use_signal(|| AppState::default());
 
     let state_lock = state.read();
     let names_rendered = state_lock.players.iter().map(|(name, _)| {
@@ -42,9 +51,22 @@ fn AddPlayer(state: Signal<AppState>) -> Element {
 
     let done = move |_| {
         show_name_dialogue.set(false);
-        state.with_mut(|s| {
-            s.add(path.read().clone().unwrap(), name.read().clone())
-                .unwrap()
+        let _ = state.with_mut(|s| {
+            let name = name.read().clone();
+            let path = path.read().clone();
+            if path.is_none() {
+                return Err(Error::msg("error: no path selected"));
+            }
+            if s.players.contains_key(&name) {
+                return Err(Error::msg(format!(
+                    "error: you cannot use the name '{name}', because it is already used."
+                )));
+            }
+            let new_player = Player::new(path.unwrap(), name.clone())?;
+            s.players
+                .insert(name.clone(), Rc::new(RefCell::new(new_player)));
+            s.top_group.insert(name.clone());
+            Ok(())
         });
     };
 
