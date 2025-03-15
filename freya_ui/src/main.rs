@@ -6,9 +6,40 @@ use indexmap::{IndexMap, IndexSet};
 use rfd::AsyncFileDialog;
 use troubadour_lib::player::Player;
 
+#[derive(Clone)]
+struct PlayerRef {
+    inner: Rc<RefCell<Player>>,
+}
+
+impl PlayerRef {
+    fn new(player: Player) -> Self {
+        PlayerRef {
+            inner: Rc::new(RefCell::new(player)),
+        }
+    }
+}
+
+impl PartialEq for PlayerRef {
+    fn eq(&self, other: &Self) -> bool {
+        let sb = self.inner.borrow();
+        let ob = other.inner.borrow();
+        sb.name == ob.name
+            && sb.base_length == ob.base_length
+            && sb.group == ob.group
+            && sb.get_is_playing() == ob.get_is_playing()
+            && sb.get_is_paused() == ob.get_is_paused()
+            && sb.volume == ob.volume
+            && sb.looping == ob.looping
+            && sb.loop_gap == ob.loop_gap
+            && sb.delay_length == ob.delay_length
+            && sb.cut_end == ob.cut_end
+            && sb.cut_start == ob.cut_start
+    }
+}
+
 #[derive(Default)]
-pub struct AppState {
-    pub players: HashMap<String, Rc<RefCell<Player>>>,
+struct AppState {
+    pub players: HashMap<String, PlayerRef>,
     pub top_group: IndexSet<String>,
     pub groups: IndexMap<String, IndexSet<String>>,
 }
@@ -21,15 +52,12 @@ fn app() -> Element {
     let state = use_signal(|| AppState::default());
 
     let state_lock = state.read();
-    let names_rendered = state_lock.players.iter().map(|(name, _)| {
-        rsx! {
-            label { "{name}" }
-        }
-    });
 
     rsx! {
         AddPlayer { state }
-        {names_rendered}
+        for (_ , p) in state_lock.players.clone() {
+            PlayerComponent { player: p }
+        }
     }
 }
 
@@ -63,8 +91,7 @@ fn AddPlayer(state: Signal<AppState>) -> Element {
                 )));
             }
             let new_player = Player::new(path.unwrap(), name.clone())?;
-            s.players
-                .insert(name.clone(), Rc::new(RefCell::new(new_player)));
+            s.players.insert(name.clone(), PlayerRef::new(new_player));
             s.top_group.insert(name.clone());
             Ok(())
         });
@@ -91,5 +118,13 @@ fn AddPlayer(state: Signal<AppState>) -> Element {
                 }
             }
         }
+    }
+}
+
+#[component]
+fn PlayerComponent(player: PlayerRef) -> Element {
+    let player_borrow = player.inner.borrow();
+    rsx! {
+        label { "{player_borrow.name}" }
     }
 }
