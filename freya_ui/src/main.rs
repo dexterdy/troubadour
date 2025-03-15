@@ -1,41 +1,12 @@
-use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
+mod player_ref;
 
 use anyhow::Error;
 use freya::prelude::*;
 use indexmap::{IndexMap, IndexSet};
+use player_ref::PlayerRef;
 use rfd::AsyncFileDialog;
+use std::{collections::HashMap, path::PathBuf};
 use troubadour_lib::player::Player;
-
-#[derive(Clone)]
-struct PlayerRef {
-    inner: Rc<RefCell<Player>>,
-}
-
-impl PlayerRef {
-    fn new(player: Player) -> Self {
-        PlayerRef {
-            inner: Rc::new(RefCell::new(player)),
-        }
-    }
-}
-
-impl PartialEq for PlayerRef {
-    fn eq(&self, other: &Self) -> bool {
-        let sb = self.inner.borrow();
-        let ob = other.inner.borrow();
-        sb.name == ob.name
-            && sb.base_length == ob.base_length
-            && sb.group == ob.group
-            && sb.get_is_playing() == ob.get_is_playing()
-            && sb.get_is_paused() == ob.get_is_paused()
-            && sb.volume == ob.volume
-            && sb.looping == ob.looping
-            && sb.loop_gap == ob.loop_gap
-            && sb.delay_length == ob.delay_length
-            && sb.cut_end == ob.cut_end
-            && sb.cut_start == ob.cut_start
-    }
-}
 
 #[derive(Default)]
 struct AppState {
@@ -123,7 +94,7 @@ fn AddPlayer(state: Signal<AppState>) -> Element {
 
 #[component]
 fn PlayerComponent(player: PlayerRef) -> Element {
-    let player_borrow = player.inner.borrow();
+    let player_borrow = player.borrow();
     rsx! {
         label { "{player_borrow.name}" }
     }
