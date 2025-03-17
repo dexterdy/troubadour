@@ -268,7 +268,7 @@ fn respond(
             volume,
         } => {
             apply_selection(state, &ids, &groups, |p| {
-                p.volume(volume);
+                p.volume(volume as f32 / 100.0, 1.0);
                 Ok(())
             })?;
             show_selection(state, &ids, &groups)?;

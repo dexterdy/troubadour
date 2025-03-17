@@ -18,7 +18,7 @@ pub(crate) struct Serializable {
     media: PathBuf,
     name: String,
     group: Option<String>,
-    volume: u32,
+    volume: f32,
     looping: bool,
     loop_gap: Duration,
     delay_length: Duration,
@@ -78,7 +78,7 @@ pub struct Player {
     pub group: Option<String>,
     playing: bool,
     paused: bool,
-    pub volume: u32,
+    pub volume: f32,
     pub looping: bool,
     pub loop_gap: Duration,
     pub delay_length: Duration,
@@ -122,7 +122,7 @@ impl Player {
             group: None,
             playing: false,
             paused: false,
-            volume: 100,
+            volume: 1_f32,
             looping: false,
             loop_gap: Duration::from_secs(0),
             delay_length: Duration::from_secs(0),
@@ -189,7 +189,7 @@ impl Player {
             cut_end: player.cut_end,
             cut_start: player.cut_start,
         };
-        new_player.volume(player.volume);
+        new_player.volume(player.volume, 1.0);
         Ok(new_player)
     }
 
@@ -227,11 +227,11 @@ impl Player {
         self.audio.sink.clear();
     }
 
-    pub fn volume(&mut self, volume: u32) {
+    pub fn volume(&mut self, volume: f32, master_volume: f32) {
         self.volume = volume;
         let real_volume = f32::powf(
             2.0,
-            f32::sqrt(f32::sqrt(f32::sqrt(volume as f32 / 100.0))).mul_add(192.0, -192.0) / 6.0,
+            f32::sqrt(f32::sqrt(f32::sqrt(volume * master_volume))).mul_add(192.0, -192.0) / 6.0,
         );
         self.audio.sink.set_volume(real_volume);
     }

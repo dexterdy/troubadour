@@ -107,7 +107,7 @@ pub fn player_to_string(player: &Player) -> String {
         if player.get_is_playing() || player.get_is_paused() {
             "\n\thas been playing for: " (duration_to_string(player.get_play_time(), true))
         }
-        "\n\tvolume: " (player.volume) "%"
+        "\n\tvolume: " ((player.volume * 100.0) as i32) "%"
         if player.looping {
             "\n\tloops"
             if player.loop_gap > Duration::from_secs(0) {

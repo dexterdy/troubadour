@@ -1,0 +1,165 @@
+use crate::{player_ref::PlayerRef, AppState};
+use anyhow::Error;
+use freya::prelude::*;
+use rfd::AsyncFileDialog;
+use std::{collections::HashMap, path::PathBuf};
+use troubadour_lib::player::Player;
+
+#[component]
+pub fn AddPlayer(state: Signal<AppState>) -> Element {
+    let mut path = use_signal::<Option<PathBuf>>(|| None);
+    let mut show_name_dialogue = use_signal(|| false);
+    let mut name = use_signal(|| "".to_string());
+
+    let pick_file = move |_| {
+        spawn(async move {
+            let file = AsyncFileDialog::new().pick_file().await;
+            path.set(file.map(|f| f.path().to_path_buf()));
+            if path.read().is_some() {
+                show_name_dialogue.set(true);
+            }
+        });
+    };
+
+    let done = move |_| {
+        show_name_dialogue.set(false);
+        let _ = state.with_mut(|s| {
+            let name = name.read().clone();
+            let path = path.read().clone();
+            if path.is_none() {
+                return Err(Error::msg("error: no path selected"));
+            }
+            if s.players.contains_key(&name) {
+                return Err(Error::msg(format!(
+                    "error: you cannot use the name '{name}', because it is already used."
+                )));
+            }
+            let new_player = Player::new(path.unwrap(), name.clone())?;
+            s.players.insert(name.clone(), PlayerRef::new(new_player));
+            s.top_group.insert(name.clone());
+            Ok(())
+        });
+    };
+
+    rsx! {
+        Button { onclick: pick_file,
+            label { "Add" }
+        }
+        if *show_name_dialogue.read() {
+            Popup { oncloserequest: move |_| { show_name_dialogue.set(false) },
+                PopupTitle {
+                    label { "What should this player be called?" }
+                }
+                PopupContent {
+                    label { "Name:" }
+                    Input {
+                        value: name.read().clone(),
+                        onchange: move |e| { name.set(e) },
+                    }
+                    Button { onclick: done,
+                        label { "Done" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+pub fn PausePlay(state: Signal<AppState>) -> Element {
+    let mut prev_player_play_states: Signal<HashMap<String, bool>> = use_signal(|| HashMap::new());
+    let get_prev_state = move || {
+        state
+            .read()
+            .players
+            .iter()
+            .map(|(name, p)| (name.clone(), p.borrow().get_is_playing()))
+            .collect::<HashMap<String, bool>>()
+    };
+    let pause_or_play = move |_| {
+        if !state.read().global_paused {
+            prev_player_play_states.set(get_prev_state());
+            state.with_mut(|s| {
+                for (_, p) in &s.players {
+                    let mut p = p.borrow_mut();
+                    if p.get_is_playing() {
+                        p.pause();
+                    }
+                }
+                s.global_paused = true;
+            })
+        } else {
+            let prev = prev_player_play_states.read();
+            state.with_mut(|s| {
+                for (n, p) in &s.players {
+                    let mut p = p.borrow_mut();
+                    if let Some(true) = prev.get(n) {
+                        let _ = p.play();
+                    }
+                }
+                s.global_paused = false;
+            })
+        }
+    };
+
+    rsx! {
+        Button { onclick: pause_or_play,
+            label {
+                if state.read().global_paused {
+                    "Play"
+                } else {
+                    "Pause"
+                }
+            }
+        }
+    }
+}
+
+#[component]
+pub fn Stop(state: Signal<AppState>) -> Element {
+    let stop = move |_| {
+        state.with_mut(|s| {
+            for (_, p) in &s.players {
+                let mut p_mut = p.borrow_mut();
+                p_mut.stop();
+            }
+        })
+    };
+
+    rsx! {
+        Button { onclick: stop,
+            label { "Stop" }
+        }
+    }
+}
+
+#[component]
+pub fn MasterVolume(state: Signal<AppState>) -> Element {
+    let mut master_volume = use_signal(|| 50_f64);
+
+    let set_master_volume = move |new_master_volume| {
+        state.with_mut(|s| {
+            for (_, p) in &s.players {
+                let mut p_mut = p.borrow_mut();
+                let player_volume = p_mut.volume;
+                p_mut.volume(player_volume, (new_master_volume * 2.0 / 100.0) as f32);
+            }
+        });
+        master_volume.set(new_master_volume);
+    };
+
+    rsx! {
+        rect {
+            width: "fill",
+            height: "35",
+            main_align: "center",
+            cross_align: "end",
+            margin: "4",
+            Slider {
+                width: "150",
+                value: *master_volume.read(),
+                onmoved: set_master_volume,
+            }
+        }
+    }
+}
