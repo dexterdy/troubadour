@@ -81,7 +81,7 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
             prev_player_play_states.set(get_prev_state());
             state.with_mut(|s| {
                 for (_, p) in &s.players {
-                    p.with_mut(|mut p| {
+                    p.with_mut(|p| {
                         if p.get_is_playing() {
                             p.pause();
                         }
@@ -93,7 +93,7 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
             let prev = prev_player_play_states.read();
             state.with_mut(|s| {
                 for (n, p) in &s.players {
-                    p.with_mut(|mut p| {
+                    p.with_mut(|p| {
                         if let Some(true) = prev.get(n) {
                             let _ = p.play();
                         }
@@ -122,7 +122,7 @@ pub fn Stop(state: Signal<AppState>) -> Element {
     let stop = move |_| {
         state.with_mut(|s| {
             for (_, p) in &s.players {
-                p.with_mut(|mut p| {
+                p.with_mut(|p| {
                     p.stop();
                 });
             }
@@ -146,7 +146,7 @@ pub fn MasterVolume(state: Signal<AppState>) -> Element {
         state.with_mut(|s| {
             s.master_volume = new_master_volume;
             for (_, p) in &s.players {
-                p.with_mut(|mut p| {
+                p.with_mut(|p| {
                     let player_volume = p.volume;
                     p.volume(player_volume, new_master_volume);
                 });

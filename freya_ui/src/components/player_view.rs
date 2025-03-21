@@ -3,36 +3,33 @@ use freya::prelude::*;
 
 #[component]
 pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
-    let update_signal = use_signal(|| ());
-    player.subscribe(update_signal);
-
     let player_clone = player.clone();
     let player_borrow = player_clone.read();
 
     let player_clone = player.clone();
     let play = move |_| {
-        player_clone.with_mut(|mut p| {
+        player_clone.with_mut(|p| {
             let _ = p.play();
         });
     };
 
     let player_clone = player.clone();
     let pause = move |_| {
-        player_clone.with_mut(|mut p| {
+        player_clone.with_mut(|p| {
             let _ = p.pause();
         });
     };
 
     let player_clone = player.clone();
     let stop = move |_| {
-        player_clone.with_mut(|mut p| {
+        player_clone.with_mut(|p| {
             let _ = p.stop();
         });
     };
 
     let player_clone = player.clone();
     let set_volume = move |new_volume| {
-        player_clone.with_mut(|mut p| {
+        player_clone.with_mut(|p| {
             p.volume((new_volume * 0.02) as f32, state.read().master_volume);
         });
     };
@@ -41,7 +38,6 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
     // loop gap
     // delay
     rsx! {
-        {update_signal}
         Button { onclick: play,
             label { "Play" }
         }
