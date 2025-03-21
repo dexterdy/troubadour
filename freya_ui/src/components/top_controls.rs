@@ -157,10 +157,9 @@ pub fn MasterVolume(state: Signal<AppState>) -> Element {
     rsx! {
         rect {
             width: "fill",
-            height: "35",
+            height: "29",
             main_align: "center",
             cross_align: "end",
-            margin: "4",
             Slider {
                 size: "150",
                 value: *master_volume.read(),
