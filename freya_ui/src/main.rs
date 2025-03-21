@@ -13,13 +13,24 @@ use indexmap::{IndexMap, IndexSet};
 use player_ref::PlayerRef;
 use std::collections::HashMap;
 
-#[derive(Default)]
 struct AppState {
     pub players: HashMap<String, PlayerRef>,
     pub top_group: IndexSet<String>,
     pub groups: IndexMap<String, IndexSet<String>>,
     pub global_paused: bool,
     pub master_volume: f32,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            players: Default::default(),
+            top_group: Default::default(),
+            groups: Default::default(),
+            global_paused: Default::default(),
+            master_volume: 1.0,
+        }
+    }
 }
 
 fn main() {

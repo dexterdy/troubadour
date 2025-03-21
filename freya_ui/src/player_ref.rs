@@ -1,50 +1,81 @@
 use std::{
-    cell::{Cell, Ref, RefCell, RefMut},
+    cell::{Ref, RefCell, RefMut},
+    ops::{Deref, DerefMut},
     rc::Rc,
 };
 
 use freya::prelude::{Readable, Signal, Writable};
 use troubadour_lib::player::Player;
 
+pub struct InnerPlayerRef {
+    player: Player,
+    generation: i32,
+    subscribers: Vec<Signal<i32>>,
+}
+
+impl Deref for InnerPlayerRef {
+    type Target = Player;
+
+    fn deref(&self) -> &Self::Target {
+        &self.player
+    }
+}
+
+impl DerefMut for InnerPlayerRef {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.player
+    }
+}
+
 #[derive(Clone)]
 pub struct PlayerRef {
-    inner: Rc<RefCell<Player>>,
-    generation: Cell<i32>,
-    subscriber: Option<RefCell<Signal<i32>>>,
+    inner: Rc<RefCell<InnerPlayerRef>>,
 }
 
 impl PlayerRef {
     pub fn new(player: Player) -> Self {
         PlayerRef {
-            inner: Rc::new(RefCell::new(player)),
-            generation: Cell::new(0),
-            subscriber: None,
+            inner: Rc::new(RefCell::new(InnerPlayerRef {
+                player: player,
+                generation: 0,
+                subscribers: vec![],
+            })),
         }
     }
 
-    pub fn subscribe(&mut self, signal: Signal<i32>) -> Self {
-        let mut cloned = self.clone();
-        cloned.subscriber = Some(RefCell::new(signal));
-        cloned
+    pub fn subscribe(&mut self, signal: Signal<i32>) {
+        let mut borrow = self.inner.borrow_mut();
+        borrow.subscribers.push(signal);
     }
 
-    pub fn read(&self) -> Ref<'_, Player> {
+    pub fn read(&self) -> Ref<'_, InnerPlayerRef> {
         self.inner.borrow()
     }
 
-    pub fn with_mut<F: Fn(RefMut<'_, Player>)>(&self, f: F) {
-        self.generation.set(self.generation.get() + 1);
+    pub fn with_mut<F: Fn(RefMut<'_, InnerPlayerRef>)>(&self, f: F) {
         (f)(self.inner.borrow_mut());
-        if let Some(sub) = &self.subscriber {
-            let mut sub = sub.borrow_mut();
-            let a = sub.read().clone();
-            sub.set(a + 1);
+        let mut borrow_mut = self.inner.borrow_mut();
+        borrow_mut.generation = borrow_mut.generation + 1;
+        let mut to_remove = vec![];
+        for (i, sub) in borrow_mut.subscribers.iter_mut().enumerate() {
+            let e = sub.try_peek();
+            if let Err(_) = e {
+                to_remove.push(i);
+            } else {
+                drop(e);
+                let a = sub.read().clone();
+                sub.set(a + 1);
+            }
+        }
+        for r in to_remove.iter().rev() {
+            let s = borrow_mut.subscribers.remove(*r);
+            s.manually_drop();
         }
     }
 }
 
 impl PartialEq for PlayerRef {
     fn eq(&self, other: &Self) -> bool {
-        self.generation == other.generation
+        self.inner.borrow().generation == other.inner.borrow().generation
     }
 }

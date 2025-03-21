@@ -138,7 +138,7 @@ pub fn Stop(state: Signal<AppState>) -> Element {
 
 #[component]
 pub fn MasterVolume(state: Signal<AppState>) -> Element {
-    let mut master_volume = use_signal(|| 50_f64);
+    let mut master_volume = use_signal(|| 50.0);
 
     let set_master_volume = move |new_master_volume| {
         master_volume.set(new_master_volume);
