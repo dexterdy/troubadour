@@ -9,11 +9,9 @@ license = "GPL-3.0"
 
 [dependencies]
 anyhow = "1.0.76"
-dioxus = { version = "0.6.3", features = [
-    "macro",
-    "hooks",
-], default-features = false }
-freya = { version = "0.2.2", features = ["devtools"] }
+freya = { git = "https://github.com/marc2332/freya.git", version = "0.3.0-rc.3", features = [
+    "devtools",
+] }
 indexmap = { version = "2.2.6" }
 rdf = "0.1.4"
 rfd = "0.15.2"

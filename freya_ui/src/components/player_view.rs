@@ -4,7 +4,7 @@ use freya::prelude::*;
 #[component]
 pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
     let update_signal = use_signal(|| 0);
-    player.subscribe(update_signal);
+    let player = player.subscribe(update_signal);
 
     let player_clone = player.clone();
     let player_borrow = player_clone.read();

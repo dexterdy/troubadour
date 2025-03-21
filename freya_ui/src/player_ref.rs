@@ -10,7 +10,7 @@ use troubadour_lib::player::Player;
 pub struct PlayerRef {
     inner: Rc<RefCell<Player>>,
     generation: Cell<i32>,
-    subscribers: Vec<Rc<RefCell<Signal<i32>>>>,
+    subscriber: Option<RefCell<Signal<i32>>>,
 }
 
 impl PlayerRef {
@@ -18,12 +18,14 @@ impl PlayerRef {
         PlayerRef {
             inner: Rc::new(RefCell::new(player)),
             generation: Cell::new(0),
-            subscribers: vec![],
+            subscriber: None,
         }
     }
 
-    pub fn subscribe(&mut self, signal: Signal<i32>) {
-        self.subscribers.push(Rc::new(RefCell::new(signal)));
+    pub fn subscribe(&mut self, signal: Signal<i32>) -> Self {
+        let mut cloned = self.clone();
+        cloned.subscriber = Some(RefCell::new(signal));
+        cloned
     }
 
     pub fn read(&self) -> Ref<'_, Player> {
@@ -33,7 +35,7 @@ impl PlayerRef {
     pub fn with_mut<F: Fn(RefMut<'_, Player>)>(&self, f: F) {
         self.generation.set(self.generation.get() + 1);
         (f)(self.inner.borrow_mut());
-        for sub in &self.subscribers {
+        if let Some(sub) = &self.subscriber {
             let mut sub = sub.borrow_mut();
             let a = sub.read().clone();
             sub.set(a + 1);

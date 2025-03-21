@@ -162,7 +162,7 @@ pub fn MasterVolume(state: Signal<AppState>) -> Element {
             cross_align: "end",
             margin: "4",
             Slider {
-                width: "150",
+                size: "150",
                 value: *master_volume.read(),
                 onmoved: set_master_volume,
             }
