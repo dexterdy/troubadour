@@ -10,7 +10,7 @@ use troubadour_lib::player::Player;
 pub struct InnerPlayerRef {
     player: Player,
     generation: i32,
-    subscribers: Vec<Signal<i32>>,
+    subscribers: Vec<Signal<()>>,
 }
 
 impl Deref for InnerPlayerRef {
@@ -43,7 +43,7 @@ impl PlayerRef {
         }
     }
 
-    pub fn subscribe(&mut self, signal: Signal<i32>) {
+    pub fn subscribe(&mut self, signal: Signal<()>) {
         let mut borrow = self.inner.borrow_mut();
         borrow.subscribers.push(signal);
     }
@@ -63,8 +63,7 @@ impl PlayerRef {
                 to_remove.push(i);
             } else {
                 drop(e);
-                let a = sub.read().clone();
-                sub.set(a + 1);
+                sub.set(());
             }
         }
         for r in to_remove.iter().rev() {
