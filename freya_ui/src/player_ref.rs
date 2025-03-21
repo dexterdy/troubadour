@@ -3,12 +3,14 @@ use std::{
     rc::Rc,
 };
 
+use freya::prelude::{Readable, Signal, Writable};
 use troubadour_lib::player::Player;
 
 #[derive(Clone)]
 pub struct PlayerRef {
     inner: Rc<RefCell<Player>>,
     generation: Cell<i32>,
+    subscribers: Vec<Rc<RefCell<Signal<i32>>>>,
 }
 
 impl PlayerRef {
@@ -16,16 +18,26 @@ impl PlayerRef {
         PlayerRef {
             inner: Rc::new(RefCell::new(player)),
             generation: Cell::new(0),
+            subscribers: vec![],
         }
     }
 
-    pub fn borrow(&self) -> Ref<'_, Player> {
+    pub fn subscribe(&mut self, signal: Signal<i32>) {
+        self.subscribers.push(Rc::new(RefCell::new(signal)));
+    }
+
+    pub fn read(&self) -> Ref<'_, Player> {
         self.inner.borrow()
     }
 
-    pub fn borrow_mut(&self) -> RefMut<'_, Player> {
+    pub fn with_mut<F: Fn(RefMut<'_, Player>)>(&self, f: F) {
         self.generation.set(self.generation.get() + 1);
-        self.inner.borrow_mut()
+        (f)(self.inner.borrow_mut());
+        for sub in &self.subscribers {
+            let mut sub = sub.borrow_mut();
+            let a = sub.read().clone();
+            sub.set(a + 1);
+        }
     }
 }
 

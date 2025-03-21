@@ -19,6 +19,7 @@ struct AppState {
     pub top_group: IndexSet<String>,
     pub groups: IndexMap<String, IndexSet<String>>,
     pub global_paused: bool,
+    pub master_volume: f32,
 }
 
 fn main() {
@@ -38,7 +39,7 @@ fn app() -> Element {
             MasterVolume { state }
         }
         for (_ , p) in state_lock.players.clone() {
-            PlayerView { player: p }
+            PlayerView { player: p, state }
         }
     }
 }

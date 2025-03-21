@@ -73,7 +73,7 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
             .read()
             .players
             .iter()
-            .map(|(name, p)| (name.clone(), p.borrow().get_is_playing()))
+            .map(|(name, p)| (name.clone(), p.read().get_is_playing()))
             .collect::<HashMap<String, bool>>()
     };
     let pause_or_play = move |_| {
@@ -81,10 +81,11 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
             prev_player_play_states.set(get_prev_state());
             state.with_mut(|s| {
                 for (_, p) in &s.players {
-                    let mut p = p.borrow_mut();
-                    if p.get_is_playing() {
-                        p.pause();
-                    }
+                    p.with_mut(|mut p| {
+                        if p.get_is_playing() {
+                            p.pause();
+                        }
+                    });
                 }
                 s.global_paused = true;
             })
@@ -92,10 +93,11 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
             let prev = prev_player_play_states.read();
             state.with_mut(|s| {
                 for (n, p) in &s.players {
-                    let mut p = p.borrow_mut();
-                    if let Some(true) = prev.get(n) {
-                        let _ = p.play();
-                    }
+                    p.with_mut(|mut p| {
+                        if let Some(true) = prev.get(n) {
+                            let _ = p.play();
+                        }
+                    });
                 }
                 s.global_paused = false;
             })
@@ -120,8 +122,9 @@ pub fn Stop(state: Signal<AppState>) -> Element {
     let stop = move |_| {
         state.with_mut(|s| {
             for (_, p) in &s.players {
-                let mut p_mut = p.borrow_mut();
-                p_mut.stop();
+                p.with_mut(|mut p| {
+                    p.stop();
+                });
             }
         })
     };
@@ -138,14 +141,17 @@ pub fn MasterVolume(state: Signal<AppState>) -> Element {
     let mut master_volume = use_signal(|| 50_f64);
 
     let set_master_volume = move |new_master_volume| {
+        master_volume.set(new_master_volume);
+        let new_master_volume = (new_master_volume * 0.02) as f32;
         state.with_mut(|s| {
+            s.master_volume = new_master_volume;
             for (_, p) in &s.players {
-                let mut p_mut = p.borrow_mut();
-                let player_volume = p_mut.volume;
-                p_mut.volume(player_volume, (new_master_volume * 2.0 / 100.0) as f32);
+                p.with_mut(|mut p| {
+                    let player_volume = p.volume;
+                    p.volume(player_volume, new_master_volume);
+                });
             }
         });
-        master_volume.set(new_master_volume);
     };
 
     rsx! {
