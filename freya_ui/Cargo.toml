@@ -9,10 +9,12 @@ license = "GPL-3.0"
 
 [dependencies]
 anyhow = "1.0.76"
+duration-human = "0.1.10"
+duration-str = "0.16.1"
 freya = { git = "https://github.com/marc2332/freya.git", version = "0.3.0-rc.3", features = [
     "devtools",
 ] }
-indexmap = { version = "2.2.6" }
+indexmap = "2.2.6"
 rdf = "0.1.4"
 rfd = "0.15.2"
 troubadour_lib = { path = "../troubadour_lib" }

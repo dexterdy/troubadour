@@ -10,15 +10,20 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
     let mut path = use_signal::<Option<PathBuf>>(|| None);
     let mut show_name_dialogue = use_signal(|| false);
     let mut name = use_signal(|| "".to_string());
+    let mut show_pick_file = use_signal(|| false);
 
     let pick_file = move |_| {
-        spawn(async move {
-            let file = AsyncFileDialog::new().pick_file().await;
-            path.set(file.map(|f| f.path().to_path_buf()));
-            if path.read().is_some() {
-                show_name_dialogue.set(true);
-            }
-        });
+        if !*show_pick_file.read() {
+            show_pick_file.toggle();
+            spawn(async move {
+                let file = AsyncFileDialog::new().pick_file().await;
+                path.set(file.map(|f| f.path().to_path_buf()));
+                if path.read().is_some() {
+                    show_name_dialogue.set(true);
+                }
+                show_pick_file.toggle();
+            });
+        }
     };
 
     let done = move |_| {

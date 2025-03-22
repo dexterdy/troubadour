@@ -312,14 +312,8 @@ impl Player {
             let play_time = self.get_looped_play_time();
             if let Some(play_time) = play_time {
                 // prevent overshooting new loop gap
-                start_at = (play_time + self.delay_length).min(
-                    self.get_loop_length()
-                        + (if looping {
-                            length
-                        } else {
-                            Duration::from_secs(0)
-                        } - self.loop_gap),
-                );
+                start_at = play_time.min(self.get_loop_length() - self.loop_gap + length)
+                    + self.delay_length;
             } else {
                 // not past delay
                 start_at = self.get_play_time();
