@@ -22,14 +22,14 @@ struct SerializableAppState {
 }
 
 pub fn save(
-    players: &HashMap<String, Player>,
+    players: HashMap<String, impl Into<Serializable>>,
     top_group: &IndexSet<String>,
     groups: &IndexMap<String, IndexSet<String>>,
     path: &Path,
 ) -> Result<(), Error> {
     let serializable: HashMap<String, Serializable> = players
-        .iter()
-        .map(|(k, p)| (k.clone(), p.to_serializable()))
+        .into_iter()
+        .map(|(k, p)| (k.clone(), p.into()))
         .collect();
     let ser_app_self = SerializableAppState {
         players: serializable,

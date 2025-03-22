@@ -1,9 +1,9 @@
 use crate::{player_ref::PlayerRef, AppState};
 use anyhow::Error;
 use freya::prelude::*;
-use rfd::AsyncFileDialog;
+use rfd::FileDialog;
 use std::{collections::HashMap, path::PathBuf};
-use troubadour_lib::player::Player;
+use troubadour_lib::{player::Player, save};
 
 #[component]
 pub fn AddPlayer(state: Signal<AppState>) -> Element {
@@ -16,8 +16,8 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
         if !*show_pick_file.read() {
             show_pick_file.toggle();
             spawn(async move {
-                let file = AsyncFileDialog::new().pick_file().await;
-                path.set(file.map(|f| f.path().to_path_buf()));
+                let file = FileDialog::new().pick_file();
+                path.set(file);
                 if path.read().is_some() {
                     show_name_dialogue.set(true);
                 }
@@ -137,6 +137,33 @@ pub fn Stop(state: Signal<AppState>) -> Element {
     rsx! {
         Button { onclick: stop,
             label { "Stop" }
+        }
+    }
+}
+
+#[component]
+pub fn Save(state: Signal<AppState>) -> Element {
+    let save = move |_| {
+        spawn(async move {
+            let file = FileDialog::new().save_file();
+            if let Some(path) = file {
+                let s = state.read();
+                let _ = save(
+                    s.players
+                        .iter()
+                        .map(|(n, p)| (n.clone(), p.clone()))
+                        .collect(),
+                    &s.top_group,
+                    &s.groups,
+                    &path,
+                );
+            }
+        });
+    };
+
+    rsx! {
+        Button { onclick: save,
+            label { "Save" }
         }
     }
 }

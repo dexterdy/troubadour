@@ -13,11 +13,11 @@ use indexmap::{IndexMap, IndexSet};
 use player_ref::PlayerRef;
 use std::collections::HashMap;
 
+// TODO: saving and loading
+// TODO: groups
+// TODO: icons
 // TODO: theming
 // TODO: layout
-// TODO: groups
-// TODO: saving and loading
-// TODO: icons
 
 struct AppState {
     pub players: HashMap<String, PlayerRef>,
@@ -49,11 +49,13 @@ fn app() -> Element {
     let state_lock = state.read();
 
     rsx! {
-        rect { direction: "horizontal", width: "fill", margin: "8",
+        rect { direction: "horizontal", width: "fill",
             AddPlayer { state }
             PausePlay { state }
             Stop { state }
             MasterVolume { state }
+                // Save { state }
+        // Load { state }
         }
         for (_ , p) in state_lock.players.clone() {
             PlayerView { player: p, state }

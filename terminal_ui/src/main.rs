@@ -403,7 +403,12 @@ fn respond(
             })
         }
         Commands::Save { path } => {
-            save(&state.players, &state.top_group, &state.groups, &path)?;
+            save(
+                state.players.iter().map(|(n, p)| (n.clone(), p)).collect(),
+                &state.top_group,
+                &state.groups,
+                &path,
+            )?;
             Ok(RespondResult {
                 saved: true,
                 mutated: false,

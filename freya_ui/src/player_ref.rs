@@ -1,7 +1,7 @@
 use std::{panic::Location, rc::Rc};
 
 use freya::prelude::{Readable, ReadableRef, Signal, Writable};
-use troubadour_lib::player::Player;
+use troubadour_lib::player::{Player, Serializable};
 
 struct InnerPlayerRef {
     player_signal: Signal<Player>,
@@ -38,5 +38,11 @@ impl PlayerRef {
 impl PartialEq for PlayerRef {
     fn eq(&self, other: &Self) -> bool {
         self.inner.player_signal == other.inner.player_signal
+    }
+}
+
+impl Into<Serializable> for PlayerRef {
+    fn into(self) -> Serializable {
+        (&*self.read()).into()
     }
 }

@@ -14,7 +14,7 @@ use std::{
 use crate::error::{convert_read_file_error, Error, ErrorVariant, FileKind};
 
 #[derive(Serialize, Deserialize)]
-pub(crate) struct Serializable {
+pub struct Serializable {
     media: PathBuf,
     name: String,
     group: Option<String>,
@@ -152,45 +152,6 @@ impl Player {
             cut_end: self.cut_end.clone(),
             cut_start: self.cut_start.clone(),
         })
-    }
-
-    pub(crate) fn to_serializable(&self) -> Serializable {
-        Serializable {
-            name: self.name.clone(),
-            group: self.group.clone(),
-            media: self.media.clone(),
-            volume: self.volume,
-            looping: self.looping,
-            loop_gap: self.loop_gap,
-            delay_length: self.delay_length,
-            cut_end: self.cut_end,
-            cut_start: self.cut_start,
-        }
-    }
-
-    pub(crate) fn from_serializable(player: &Serializable) -> Result<Self, Error> {
-        let audio = Audio::new(&player.media)?;
-        let length = audio.source.total_duration().unwrap();
-
-        let mut new_player = Self {
-            audio,
-            media: player.media.clone(),
-            last_time_poll: None,
-            time_at_last_poll: Duration::from_secs(0),
-            name: player.name.clone(),
-            base_length: length,
-            group: player.group.clone(),
-            playing: false,
-            paused: false,
-            volume: player.volume,
-            looping: player.looping,
-            loop_gap: player.loop_gap,
-            delay_length: player.delay_length,
-            cut_end: player.cut_end,
-            cut_start: player.cut_start,
-        };
-        new_player.volume(player.volume, 1.0);
-        Ok(new_player)
     }
 
     pub fn play(&mut self) -> Result<(), Error> {
@@ -406,10 +367,51 @@ impl Player {
 
         Ok(())
     }
+
+    pub(crate) fn from_serializable(player: &Serializable) -> Result<Self, Error> {
+        let audio = Audio::new(&player.media)?;
+        let length = audio.source.total_duration().unwrap();
+
+        let mut new_player = Self {
+            audio,
+            media: player.media.clone(),
+            last_time_poll: None,
+            time_at_last_poll: Duration::from_secs(0),
+            name: player.name.clone(),
+            base_length: length,
+            group: player.group.clone(),
+            playing: false,
+            paused: false,
+            volume: player.volume,
+            looping: player.looping,
+            loop_gap: player.loop_gap,
+            delay_length: player.delay_length,
+            cut_end: player.cut_end,
+            cut_start: player.cut_start,
+        };
+        new_player.volume(player.volume, 1.0);
+        Ok(new_player)
+    }
 }
 
 fn duration_rem(a: Duration, b: Duration) -> Duration {
     Duration::from_secs_f64(a.as_secs_f64() % b.as_secs_f64())
+}
+
+impl Into<Serializable> for &Player {
+    fn into(self) -> Serializable {
+        Serializable {
+            name: self.name.clone(),
+            group: self.group.clone(),
+            media: self.media.clone(),
+            volume: self.volume,
+            looping: self.looping,
+            loop_gap: self.loop_gap,
+            delay_length: self.delay_length,
+            cut_end: self.cut_end,
+            cut_start: self.cut_start,
+        }
+    }
 }
 
 #[test]
