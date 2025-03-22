@@ -13,6 +13,12 @@ use indexmap::{IndexMap, IndexSet};
 use player_ref::PlayerRef;
 use std::collections::HashMap;
 
+// TODO: theming
+// TODO: layout
+// TODO: groups
+// TODO: saving and loading
+// TODO: icons
+
 struct AppState {
     pub players: HashMap<String, PlayerRef>,
     pub top_group: IndexSet<String>,

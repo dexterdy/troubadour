@@ -88,7 +88,6 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
         }
     };
 
-    // delay
     rsx! {
         label { "{player_borrow.name}" }
         Button { onclick: play,

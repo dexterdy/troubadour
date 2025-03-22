@@ -1,3 +1,6 @@
+mod terminal_helpers;
+mod ui_definition;
+
 use anyhow::Error;
 use clap::Parser;
 use indexmap::{IndexMap, IndexSet};
@@ -11,15 +14,6 @@ use terminal_helpers::{get_confirmation, get_option, readline, show_selection};
 use troubadour_lib::player::Player;
 use troubadour_lib::{load, save};
 use ui_definition::Commands;
-
-// TODO: fades (fade in, fade out, fade transition, fade length with default)
-// TODO: make a nice GUI
-// TODO: write a bunch of tests
-// TODO: copy operation
-// VERY FAR FUTURE: add a special mapping feature (dungeon vtt-esque)
-
-mod terminal_helpers;
-mod ui_definition;
 
 struct RespondResult {
     saved: bool,

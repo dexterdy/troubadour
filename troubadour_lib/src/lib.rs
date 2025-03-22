@@ -1,3 +1,6 @@
+mod error;
+pub mod player;
+
 use std::{
     collections::HashMap,
     fs::{self, File},
@@ -9,8 +12,7 @@ use indexmap::{IndexMap, IndexSet};
 use player::{Player, Serializable};
 use serde::{Deserialize, Serialize};
 
-mod error;
-pub mod player;
+// TODO: fades (fade in, fade out, fade transition, fade length with default)
 
 #[derive(Serialize, Deserialize)]
 struct SerializableAppState {
