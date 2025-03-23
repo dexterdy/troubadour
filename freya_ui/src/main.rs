@@ -1,12 +1,13 @@
 mod components {
     pub mod player_view;
+    pub mod split_button;
     pub mod top_controls;
 }
 mod player_ref;
 
 use components::{
     player_view::PlayerView,
-    top_controls::{AddPlayer, MasterVolume, PausePlay, Stop},
+    top_controls::{AddPlayer, Load, MasterVolume, PausePlay, Save, Stop},
 };
 use freya::prelude::*;
 use indexmap::{IndexMap, IndexSet};
@@ -44,6 +45,7 @@ fn main() {
 }
 
 fn app() -> Element {
+    // use_init_native_platform();
     let state = use_signal(|| AppState::default());
 
     let state_lock = state.read();
@@ -53,9 +55,9 @@ fn app() -> Element {
             AddPlayer { state }
             PausePlay { state }
             Stop { state }
+            Save { state }
+            Load { state }
             MasterVolume { state }
-                // Save { state }
-        // Load { state }
         }
         for (_ , p) in state_lock.players.clone() {
             PlayerView { player: p, state }

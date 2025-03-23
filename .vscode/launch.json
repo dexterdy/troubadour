@@ -44,6 +44,47 @@
             "args": [],
             "cwd": "${workspaceFolder}/terminal_ui",
             "relativePathBase": "${workspaceFolder}/terminal_ui"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug freya ui",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=troubadour-freya",
+                    "--package=troubadour-freya"
+                ],
+                "filter": {
+                    "name": "troubadour-freya",
+                    "kind": "bin"
+                },
+                "cwd": "${workspaceFolder}/freya_ui",
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}/freya_ui",
+            "relativePathBase": "${workspaceFolder}/freya_ui"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests freya ui",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=troubadour-freya",
+                    "--package=troubadour-freya"
+                ],
+                "filter": {
+                    "name": "troubadour-freya",
+                    "kind": "bin"
+                },
+                "cwd": "${workspaceFolder}/freya_ui",
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}/freya_ui",
+            "relativePathBase": "${workspaceFolder}/freya_ui"
         }
     ]
 }

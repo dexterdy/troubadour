@@ -1,4 +1,4 @@
-use crate::{player_ref::PlayerRef, AppState};
+use crate::{components::split_button::SplitButton, player_ref::PlayerRef, AppState};
 use anyhow::Error;
 use freya::prelude::*;
 use rfd::FileDialog;
@@ -164,6 +164,27 @@ pub fn Save(state: Signal<AppState>) -> Element {
     rsx! {
         Button { onclick: save,
             label { "Save" }
+        }
+    }
+}
+
+#[component]
+pub fn Load(state: Signal<AppState>) -> Element {
+    let load = move |_| {};
+    let merge_load = move |_: ()| {};
+
+    rsx! {
+        SplitButton {
+            onclick: load,
+            options: vec![
+                (
+                    EventHandler::new(merge_load),
+                    rsx! {
+                        label { "add to soundscape" }
+                    },
+                ),
+            ],
+            label { "load" }
         }
     }
 }
