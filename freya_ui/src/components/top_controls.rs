@@ -1,4 +1,4 @@
-use crate::{components::split_button::SplitButton, player_ref::PlayerRef, AppState};
+use crate::{components::prelude::SplitButton, player_ref::PlayerRef, AppState};
 use anyhow::Error;
 use freya::prelude::*;
 use rfd::FileDialog;

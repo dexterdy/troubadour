@@ -1,6 +1,6 @@
 mod components {
     pub mod player_view;
-    pub mod split_button;
+    pub mod prelude;
     pub mod top_controls;
 }
 mod player_ref;
@@ -45,7 +45,6 @@ fn main() {
 }
 
 fn app() -> Element {
-    // use_init_native_platform();
     let state = use_signal(|| AppState::default());
 
     let state_lock = state.read();
