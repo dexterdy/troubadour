@@ -7,13 +7,8 @@ pub fn SplitButton(
     options: Vec<(EventHandler<()>, Element)>,
 ) -> Element {
     let theme = use_get_theme();
-    let ColorsSheet {
-        color,
-        surface,
-        background,
-        ..
-    } = theme.colors;
-    let mut menu_open = use_signal(|| false);
+    let ColorsSheet { color, .. } = theme.colors;
+    let menu_open = use_signal(|| false);
 
     rsx! {
         rect { direction: "vertical",
@@ -30,25 +25,7 @@ pub fn SplitButton(
                 SplitRightInnerButton { menu_open }
             }
             if *menu_open.read() {
-                rect { width: "0", height: "0",
-                    rect { width: "100v",
-                        rect {
-                            margin: "5 0 0 0",
-                            border: "1 inner {surface}",
-                            corner_radius: "8",
-                            shadow: "0 0 8 0 rgb(0, 0, 0, 0.15)",
-                            background: "{background}",
-                            padding: "6",
-                            for (onpress , children) in options {
-                                SplitOptionInnerButton {
-                                    onpress,
-                                    menu_open,
-                                    children,
-                                }
-                            }
-                        }
-                    }
-                }
+                SplitInnerModal { menu_open, options }
             }
         }
     }
@@ -65,7 +42,7 @@ fn SplitLeftInnerButton(onpress: Option<EventHandler<()>>, children: Element) ->
         ..
     } = theme.colors;
 
-    let mut focussed = use_focus();
+    let focussed = use_focus();
     let mut status = use_signal(ButtonStatus::default);
     let platform = use_platform();
 
@@ -119,7 +96,6 @@ fn SplitLeftInnerButton(onpress: Option<EventHandler<()>>, children: Element) ->
             onmouseenter,
             onmouseleave,
             onclick: move |_| {
-                focussed.focus();
                 onpress.map(|c| (c)(()));
             },
             onkeydown,
@@ -140,15 +116,9 @@ fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
         ..
     } = theme.colors;
 
-    let mut focussed = use_focus();
+    let focussed = use_focus();
     let mut status = use_signal(ButtonStatus::default);
     let platform = use_platform();
-
-    use_effect(move || {
-        if !focussed.is_focused() && *menu_open.peek() {
-            menu_open.set(false);
-        }
-    });
 
     use_drop(move || {
         if *status.read() == ButtonStatus::Hovering {
@@ -198,11 +168,58 @@ fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
             onmouseenter,
             onmouseleave,
             onclick: move |_| {
-                focussed.focus();
                 menu_open.toggle();
             },
             onkeydown,
             TickIcon { fill: "{solid}" }
+        }
+    }
+}
+
+#[component]
+fn SplitInnerModal(menu_open: Signal<bool>, options: Vec<(EventHandler<()>, Element)>) -> Element {
+    let theme = use_get_theme();
+    let ColorsSheet {
+        surface,
+        background,
+        ..
+    } = theme.colors;
+
+    let mut focussed = use_focus();
+    let mut first_render = use_signal(|| true);
+
+    use_hook(move || focussed.focus());
+    use_drop(move || focussed.unfocus());
+
+    use_effect(move || {
+        let foc = focussed.is_focused();
+        if *first_render.peek() {
+            first_render.set(false);
+            return;
+        }
+        if !foc && *menu_open.peek() {
+            menu_open.set(false);
+        }
+    });
+
+    rsx! {
+        rect { width: "0", height: "0",
+            rect { width: "100v",
+                rect {
+                    a11y_id: focussed.attribute(),
+                    a11y_focusable: true,
+                    a11y_modal: true,
+                    margin: "5 0 0 0",
+                    border: "1 inner {surface}",
+                    corner_radius: "8",
+                    shadow: "0 0 8 0 rgb(0, 0, 0, 0.15)",
+                    background: "{background}",
+                    padding: "6",
+                    for (onpress , children) in options {
+                        SplitOptionInnerButton { onpress, menu_open, children }
+                    }
+                }
+            }
         }
     }
 }
@@ -241,6 +258,12 @@ fn SplitOptionInnerButton(
         platform.set_cursor(CursorIcon::default());
         status.set(ButtonStatus::default());
     };
+
+    use_drop(move || {
+        if *status.read() == ButtonStatus::Hovering {
+            platform.set_cursor(CursorIcon::default());
+        }
+    });
 
     let background = match *status.read() {
         ButtonStatus::Hovering => focused_surface.to_string(),
