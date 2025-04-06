@@ -71,13 +71,13 @@ fn SplitLeftInnerButton(onclick: Option<EventHandler<()>>, children: Element) ->
         status.set(ButtonStatus::default());
     };
 
-    // let onkeydown = move |ev: KeyboardEvent| {
-    //     if focussed.validate_keydown(&ev) {
-    //         if let Some(onpress) = &onpress {
-    //             onpress.call(PressEvent::Key(ev))
-    //         }
-    //     }
-    // };
+    let onkeydown = move |ev: KeyboardEvent| {
+        if focussed.validate_keydown(&ev) {
+            if let Some(onpress) = &onclick {
+                onpress.call(())
+            }
+        }
+    };
 
     let background = match *status.read() {
         ButtonStatus::Hovering => focused_surface,
@@ -108,6 +108,7 @@ fn SplitLeftInnerButton(onclick: Option<EventHandler<()>>, children: Element) ->
                 focussed.focus();
                 onclick.map(|c| (c)(()));
             },
+            onkeydown,
             {children}
         }
     }
@@ -124,13 +125,17 @@ fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
         ..
     } = theme.colors;
 
+    let mut prev_focus = use_signal(|| false);
     let mut focussed = use_focus();
     let mut status = use_signal(ButtonStatus::default);
     let platform = use_platform();
 
     use_effect(move || {
-        if !focussed.is_focused() && *menu_open.read() {
+        if !focussed.is_focused() && *menu_open.read() && *prev_focus.read() {
             menu_open.set(false);
+        }
+        if focussed.is_focused() != *prev_focus.read() {
+            prev_focus.set(focussed.is_focused());
         }
     });
 
@@ -150,13 +155,11 @@ fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
         status.set(ButtonStatus::default());
     };
 
-    // let onkeydown = move |ev: KeyboardEvent| {
-    //     if focussed.validate_keydown(&ev) {
-    //         if let Some(onpress) = &onpress {
-    //             onpress.call(PressEvent::Key(ev))
-    //         }
-    //     }
-    // };
+    let onkeydown = move |ev: KeyboardEvent| {
+        if focussed.validate_keydown(&ev) {
+            menu_open.toggle();
+        }
+    };
 
     let background = match *status.read() {
         ButtonStatus::Hovering => focused_surface,
@@ -184,9 +187,10 @@ fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
             onmouseenter,
             onmouseleave,
             onclick: move |_| {
-                menu_open.toggle();
                 focussed.focus();
+                menu_open.toggle();
             },
+            onkeydown,
             TickIcon { fill: "black" }
         }
     }
