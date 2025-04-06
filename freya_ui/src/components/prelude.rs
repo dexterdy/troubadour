@@ -2,36 +2,50 @@ use freya::prelude::*;
 
 #[component]
 pub fn SplitButton(
-    onclick: Option<EventHandler<()>>,
+    onpress: Option<EventHandler<()>>,
     children: Element,
     options: Vec<(EventHandler<()>, Element)>,
 ) -> Element {
     let theme = use_get_theme();
+    let ColorsSheet {
+        color,
+        surface,
+        background,
+        ..
+    } = theme.colors;
     let mut menu_open = use_signal(|| false);
 
     rsx! {
         rect { direction: "vertical",
             rect {
                 overflow: "clip",
-                color: "{theme.colors.color}",
+                color: "{color}",
                 corner_radius: "6",
                 text_height: "disable-least-ascent",
                 direction: "horizontal",
                 main_align: "center",
                 cross_align: "center",
-                SplitLeftInnerButton { onclick, {children} }
+                SplitLeftInnerButton { onpress, {children} }
                 Separator { orientation: Orientation::Vertical }
                 SplitRightInnerButton { menu_open }
             }
             if *menu_open.read() {
-                rect {
-                    for (onclick , children) in options {
+                rect { width: "0", height: "0",
+                    rect { width: "100v",
                         rect {
-                            onclick: move |_| {
-                                menu_open.set(false);
-                                (onclick)(());
-                            },
-                            {children}
+                            margin: "5 0 0 0",
+                            border: "1 inner {surface}",
+                            corner_radius: "8",
+                            shadow: "0 0 8 0 rgb(0, 0, 0, 0.15)",
+                            background: "{background}",
+                            padding: "6",
+                            for (onpress , children) in options {
+                                SplitOptionInnerButton {
+                                    onpress,
+                                    menu_open,
+                                    children,
+                                }
+                            }
                         }
                     }
                 }
@@ -41,7 +55,7 @@ pub fn SplitButton(
 }
 
 #[component]
-fn SplitLeftInnerButton(onclick: Option<EventHandler<()>>, children: Element) -> Element {
+fn SplitLeftInnerButton(onpress: Option<EventHandler<()>>, children: Element) -> Element {
     let theme = use_get_theme();
     let ColorsSheet {
         surface,
@@ -73,7 +87,7 @@ fn SplitLeftInnerButton(onclick: Option<EventHandler<()>>, children: Element) ->
 
     let onkeydown = move |ev: KeyboardEvent| {
         if focussed.validate_keydown(&ev) {
-            if let Some(onpress) = &onclick {
+            if let Some(onpress) = &onpress {
                 onpress.call(())
             }
         }
@@ -106,7 +120,7 @@ fn SplitLeftInnerButton(onclick: Option<EventHandler<()>>, children: Element) ->
             onmouseleave,
             onclick: move |_| {
                 focussed.focus();
-                onclick.map(|c| (c)(()));
+                onpress.map(|c| (c)(()));
             },
             onkeydown,
             {children}
@@ -122,20 +136,17 @@ fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
         neutral_surface,
         focused_surface,
         focused_border,
+        solid,
         ..
     } = theme.colors;
 
-    let mut prev_focus = use_signal(|| false);
     let mut focussed = use_focus();
     let mut status = use_signal(ButtonStatus::default);
     let platform = use_platform();
 
     use_effect(move || {
-        if !focussed.is_focused() && *menu_open.read() && *prev_focus.read() {
+        if !focussed.is_focused() && *menu_open.peek() {
             menu_open.set(false);
-        }
-        if focussed.is_focused() != *prev_focus.read() {
-            prev_focus.set(focussed.is_focused());
         }
     });
 
@@ -191,7 +202,75 @@ fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
                 menu_open.toggle();
             },
             onkeydown,
-            TickIcon { fill: "black" }
+            TickIcon { fill: "{solid}" }
+        }
+    }
+}
+
+#[component]
+fn SplitOptionInnerButton(
+    onpress: EventHandler<()>,
+    menu_open: Signal<bool>,
+    children: Element,
+) -> Element {
+    let theme = use_get_theme();
+    let ColorsSheet {
+        focused_surface,
+        focused_border,
+        ..
+    } = theme.colors;
+
+    let mut focussed = use_focus();
+    let mut status = use_signal(ButtonStatus::default);
+    let platform = use_platform();
+
+    let onkeydown = move |ev: KeyboardEvent| {
+        if focussed.validate_keydown(&ev) {
+            menu_open.set(false);
+            focussed.unfocus();
+            onpress.call(());
+        }
+    };
+
+    let onmouseenter = move |_| {
+        platform.set_cursor(CursorIcon::Pointer);
+        status.set(ButtonStatus::Hovering);
+    };
+
+    let onmouseleave = move |_| {
+        platform.set_cursor(CursorIcon::default());
+        status.set(ButtonStatus::default());
+    };
+
+    let background = match *status.read() {
+        ButtonStatus::Hovering => focused_surface.to_string(),
+        ButtonStatus::Idle => "none".to_string(),
+    };
+
+    let border = if focussed.is_focused_with_keyboard() {
+        format!("2 inner {focused_border}")
+    } else {
+        "".to_string()
+    };
+
+    rsx! {
+        rect {
+            a11y_id: focussed.attribute(),
+            a11y_focusable: true,
+            a11y_role: "button",
+            padding: "6 12",
+            corner_radius: "6",
+            onkeydown,
+            onmouseenter,
+            onmouseleave,
+            background,
+            border,
+            onclick: move |_| {
+                menu_open.set(false);
+                focussed.unfocus();
+                onpress.call(())
+            },
+            {children}
         }
     }
 }

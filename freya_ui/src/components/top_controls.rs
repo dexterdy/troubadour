@@ -175,8 +175,20 @@ pub fn Load(state: Signal<AppState>) -> Element {
 
     rsx! {
         SplitButton {
-            onclick: load,
+            onpress: load,
             options: vec![
+                (
+                    EventHandler::new(merge_load),
+                    rsx! {
+                        label { "add to soundscape" }
+                    },
+                ),
+                (
+                    EventHandler::new(merge_load),
+                    rsx! {
+                        label { "add to soundscape" }
+                    },
+                ),
                 (
                     EventHandler::new(merge_load),
                     rsx! {
