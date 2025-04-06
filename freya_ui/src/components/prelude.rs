@@ -1,7 +1,4 @@
-use freya::prelude::{
-    dioxus_elements::attributes::{height, width},
-    *,
-};
+use freya::prelude::*;
 
 #[component]
 pub fn SplitButton(
@@ -9,40 +6,22 @@ pub fn SplitButton(
     children: Element,
     options: Vec<(EventHandler<()>, Element)>,
 ) -> Element {
-    let mut theme = use_get_theme();
-    theme.button.apply_colors(&theme.colors);
-    let ButtonTheme {
-        border_fill,
-        margin,
-        corner_radius,
-        font_theme,
-        shadow,
-        width,
-        height,
-        ..
-    } = theme.button.clone();
-
+    let theme = use_get_theme();
     let mut menu_open = use_signal(|| false);
 
     rsx! {
         rect { direction: "vertical",
             rect {
-                margin: "{margin}",
                 overflow: "clip",
-                color: "{font_theme.color}",
-                shadow: "{shadow}",
-                border: "1 inner {border_fill}",
-                corner_radius: "{corner_radius}",
+                color: "{theme.colors.color}",
+                corner_radius: "6",
                 text_height: "disable-least-ascent",
                 direction: "horizontal",
                 main_align: "center",
                 cross_align: "center",
-                width: "{width}",
-                height: "{height}",
-                padding: "1",
-                SplitLeftInnerButton { onclick, theme: theme.button.clone(), {children} }
+                SplitLeftInnerButton { onclick, {children} }
                 Separator { orientation: Orientation::Vertical }
-                SplitRightInnerButton { theme: theme.button, menu_open }
+                SplitRightInnerButton { menu_open }
             }
             if *menu_open.read() {
                 rect {
@@ -62,18 +41,15 @@ pub fn SplitButton(
 }
 
 #[component]
-fn SplitLeftInnerButton(
-    onclick: Option<EventHandler<()>>,
-    theme: ButtonTheme,
-    children: Element,
-) -> Element {
-    let ButtonTheme {
-        hover_background,
-        background,
-        padding,
-        focus_border_fill,
+fn SplitLeftInnerButton(onclick: Option<EventHandler<()>>, children: Element) -> Element {
+    let theme = use_get_theme();
+    let ColorsSheet {
+        surface,
+        neutral_surface,
+        focused_surface,
+        focused_border,
         ..
-    } = theme;
+    } = theme.colors;
 
     let mut focussed = use_focus();
     let mut status = use_signal(ButtonStatus::default);
@@ -104,14 +80,14 @@ fn SplitLeftInnerButton(
     // };
 
     let background = match *status.read() {
-        ButtonStatus::Hovering => hover_background,
-        ButtonStatus::Idle => background,
+        ButtonStatus::Hovering => focused_surface,
+        ButtonStatus::Idle => neutral_surface,
     };
 
     let border = if focussed.is_focused_with_keyboard() {
-        format!("2 inner {focus_border_fill}")
+        format!("2 inner {focused_border}")
     } else {
-        "".to_string()
+        format!("1 0 1 1 inner {surface}")
     };
 
     rsx! {
@@ -123,8 +99,9 @@ fn SplitLeftInnerButton(
             direction: "horizontal",
             main_align: "center",
             cross_align: "center",
+            corner_radius: "6 0 6 0",
             border,
-            padding: parse_and_subtract_from_padding(padding),
+            padding: "6 12",
             onmouseenter,
             onmouseleave,
             onclick: move |_| {
@@ -137,14 +114,15 @@ fn SplitLeftInnerButton(
 }
 
 #[component]
-fn SplitRightInnerButton(theme: ButtonTheme, menu_open: Signal<bool>) -> Element {
-    let ButtonTheme {
-        hover_background,
-        background,
-        padding,
-        focus_border_fill,
+fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
+    let theme = use_get_theme();
+    let ColorsSheet {
+        surface,
+        neutral_surface,
+        focused_surface,
+        focused_border,
         ..
-    } = theme;
+    } = theme.colors;
 
     let mut focussed = use_focus();
     let mut status = use_signal(ButtonStatus::default);
@@ -181,14 +159,14 @@ fn SplitRightInnerButton(theme: ButtonTheme, menu_open: Signal<bool>) -> Element
     // };
 
     let background = match *status.read() {
-        ButtonStatus::Hovering => hover_background,
-        ButtonStatus::Idle => background,
+        ButtonStatus::Hovering => focused_surface,
+        ButtonStatus::Idle => neutral_surface,
     };
 
     let border = if focussed.is_focused_with_keyboard() {
-        format!("2 inner {focus_border_fill}")
+        format!("2 inner {focused_border}")
     } else {
-        "".to_string()
+        format!("1 1 1 0 inner {surface}")
     };
 
     rsx! {
@@ -199,7 +177,8 @@ fn SplitRightInnerButton(theme: ButtonTheme, menu_open: Signal<bool>) -> Element
             background: "{background}",
             main_align: "center",
             cross_align: "center",
-            padding: parse_and_subtract_from_padding(padding),
+            padding: "6 12",
+            corner_radius: "0 6 0 6",
             border,
             height: "100%",
             onmouseenter,
@@ -235,11 +214,4 @@ pub fn Separator(orientation: Orientation) -> Element {
             background: "{theme.colors.opposite_surface}",
         }
     }
-}
-
-fn parse_and_subtract_from_padding(padding: Cow<'static, str>) -> String {
-    padding
-        .split(" ")
-        .map(|n| (n.parse::<f32>().unwrap_or(1.0) - 1.0).to_string() + " ")
-        .collect::<String>()
 }
