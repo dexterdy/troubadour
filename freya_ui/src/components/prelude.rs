@@ -1,3 +1,5 @@
+use std::thread::sleep;
+use std::time::Duration;
 use freya::prelude::*;
 
 #[component]
@@ -90,7 +92,7 @@ fn SplitLeftInnerButton(onpress: Option<EventHandler<()>>, children: Element) ->
             direction: "horizontal",
             main_align: "center",
             cross_align: "center",
-            corner_radius: "6 0 6 0",
+            corner_radius: "6 0 0 6",
             border,
             padding: "6 12",
             onmouseenter,
@@ -162,7 +164,7 @@ fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
             main_align: "center",
             cross_align: "center",
             padding: "6 12",
-            corner_radius: "0 6 0 6",
+            corner_radius: "0 6 6 0",
             border,
             height: "100%",
             onmouseenter,
@@ -185,29 +187,22 @@ fn SplitInnerModal(menu_open: Signal<bool>, options: Vec<(EventHandler<()>, Elem
         ..
     } = theme.colors;
 
-    let mut focussed = use_focus();
-    let mut first_render = use_signal(|| true);
-
-    use_hook(move || focussed.focus());
-    use_drop(move || focussed.unfocus());
+    let mut prev_inner_focused = use_signal(|| 0);
+    let inner_focused = use_signal(|| 0);
 
     use_effect(move || {
-        let foc = focussed.is_focused();
-        if *first_render.peek() {
-            first_render.set(false);
-            return;
-        }
-        if !foc && *menu_open.peek() {
+        let prev = prev_inner_focused.peek().clone();
+        let cur = inner_focused.read().clone();
+        if cur == 0 && prev > 0 {
             menu_open.set(false);
         }
+        prev_inner_focused.set(cur);
     });
 
     rsx! {
         rect { width: "0", height: "0",
             rect { width: "100v",
                 rect {
-                    a11y_id: focussed.attribute(),
-                    a11y_focusable: true,
                     a11y_modal: true,
                     margin: "5 0 0 0",
                     border: "1 inner {surface}",
@@ -216,7 +211,7 @@ fn SplitInnerModal(menu_open: Signal<bool>, options: Vec<(EventHandler<()>, Elem
                     background: "{background}",
                     padding: "6",
                     for (onpress , children) in options {
-                        SplitOptionInnerButton { onpress, menu_open, children }
+                        SplitOptionInnerButton { onpress, menu_open, inner_focused, children }
                     }
                 }
             }
@@ -228,6 +223,7 @@ fn SplitInnerModal(menu_open: Signal<bool>, options: Vec<(EventHandler<()>, Elem
 fn SplitOptionInnerButton(
     onpress: EventHandler<()>,
     menu_open: Signal<bool>,
+    inner_focused: Signal<i32>,
     children: Element,
 ) -> Element {
     let theme = use_get_theme();
@@ -237,14 +233,29 @@ fn SplitOptionInnerButton(
         ..
     } = theme.colors;
 
-    let mut focussed = use_focus();
+    let mut focused = use_focus();
     let mut status = use_signal(ButtonStatus::default);
     let platform = use_platform();
+    let mut first_render = use_signal(|| true);
+
+    use_effect(move || {
+        let foc = focused.is_focused();
+        let cur_inn_foc = inner_focused.peek().clone();
+        if *first_render.peek() {
+            first_render.set(false);
+            return;
+        }
+        if foc {
+            inner_focused.set(cur_inn_foc + 1);
+        } else {
+            inner_focused.set(cur_inn_foc - 1);
+        }
+    });
 
     let onkeydown = move |ev: KeyboardEvent| {
-        if focussed.validate_keydown(&ev) {
+        if focused.validate_keydown(&ev) {
             menu_open.set(false);
-            focussed.unfocus();
+            focused.request_unfocus();
             onpress.call(());
         }
     };
@@ -270,7 +281,7 @@ fn SplitOptionInnerButton(
         ButtonStatus::Idle => "none".to_string(),
     };
 
-    let border = if focussed.is_focused_with_keyboard() {
+    let border = if focused.is_focused_with_keyboard() {
         format!("2 inner {focused_border}")
     } else {
         "".to_string()
@@ -278,7 +289,7 @@ fn SplitOptionInnerButton(
 
     rsx! {
         rect {
-            a11y_id: focussed.attribute(),
+            a11y_id: focused.attribute(),
             a11y_focusable: true,
             a11y_role: "button",
             padding: "6 12",
@@ -290,7 +301,7 @@ fn SplitOptionInnerButton(
             border,
             onclick: move |_| {
                 menu_open.set(false);
-                focussed.unfocus();
+                focused.request_unfocus();
                 onpress.call(())
             },
             {children}

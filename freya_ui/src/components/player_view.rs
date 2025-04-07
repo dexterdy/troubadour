@@ -102,15 +102,15 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
         label { "volume" }
         Slider { value: (player_borrow.volume * 50.0) as f64, onmoved: set_volume }
         label { "cut start" }
-        Input { value: cut_start_input.read(), onchange: cut_start }
+        Input { value: cut_start_input, onchange: cut_start }
         label { "cut end" }
-        Input { value: cut_end_input.read(), onchange: cut_end }
+        Input { value: cut_end_input, onchange: cut_end }
         label { "loop" }
         Switch { enabled: player_borrow.looping, ontoggled: toggle_loop }
         label { "loop gap" }
-        Input { value: loop_gap_input.read(), onchange: set_loop_gap }
+        Input { value: loop_gap_input, onchange: set_loop_gap }
         label { "delay" }
-        Input { value: delay_input.read(), onchange: set_delay }
+        Input { value: delay_input, onchange: set_delay }
     }
 }
 

@@ -1,5 +1,5 @@
 [package]
-name = "troubadour-freya"
+name = "troubadour_freya"
 version = "0.1.0"
 edition = "2021"
 authors = ["J.P. Hagedoorn AKA Dexterdy Krataigos"]
@@ -10,11 +10,10 @@ license = "GPL-3.0"
 [dependencies]
 anyhow = "1.0.76"
 duration-human = "0.1.10"
-duration-str = "0.16.1"
-freya = { git = "https://github.com/marc2332/freya.git", version = "0.3.0-rc.3", features = [
+duration-str = "0.17.0"
+freya = { git = "https://github.com/marc2332/freya.git", version = "0.3.0-rc.4", features = [
     "devtools",
 ] }
-indexmap = "2.2.6"
-rdf = "0.1.4"
-rfd = "0.15.2"
+indexmap = "2.9.0"
+rfd = "0.15.3"
 troubadour_lib = { path = "../troubadour_lib" }

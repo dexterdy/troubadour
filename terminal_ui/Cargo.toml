@@ -1,5 +1,5 @@
 [package]
-name = "troubadour-terminal"
+name = "troubadour_terminal"
 version = "0.1.0"
 edition = "2021"
 authors = ["J.P. Hagedoorn AKA Dexterdy Krataigos"]
@@ -9,12 +9,12 @@ license = "GPL-3.0"
 
 [dependencies]
 anyhow = "1.0.97"
-clap = { version = "4.5.31", features = ["derive"] }
+clap = { version = "4.5.35", features = ["derive"] }
 shlex = "1.3.0"
 const_format = "0.2.34"
 fomat-macros = "0.3.2"
 duration-human = "0.1.10"
-duration-str = "0.16.1"
+duration-str = "0.17.0"
 rustyline = "15.0.0"
-indexmap = { version = "2.7.1" }
+indexmap = { version = "2.9.0" }
 troubadour_lib = { path = "../troubadour_lib" }
