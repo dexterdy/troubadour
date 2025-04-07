@@ -1,8 +1,4 @@
-mod components {
-    pub mod player_view;
-    pub mod prelude;
-    pub mod top_controls;
-}
+mod components;
 mod player_ref;
 
 use components::{

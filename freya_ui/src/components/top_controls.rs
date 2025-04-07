@@ -1,4 +1,4 @@
-use crate::{components::prelude::SplitButton, player_ref::PlayerRef, AppState};
+use crate::{components::SplitButton, player_ref::PlayerRef, AppState};
 use anyhow::Error;
 use freya::prelude::*;
 use rfd::FileDialog;
@@ -177,18 +177,6 @@ pub fn Load(state: Signal<AppState>) -> Element {
         SplitButton {
             onpress: load,
             options: vec![
-                (
-                    EventHandler::new(merge_load),
-                    rsx! {
-                        label { "add to soundscape" }
-                    },
-                ),
-                (
-                    EventHandler::new(merge_load),
-                    rsx! {
-                        label { "add to soundscape" }
-                    },
-                ),
                 (
                     EventHandler::new(merge_load),
                     rsx! {
