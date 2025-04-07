@@ -11,11 +11,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=troubadour-terminal",
-                    "--package=troubadour-terminal"
+                    "--bin=troubadour_terminal",
+                    "--package=troubadour_terminal"
                 ],
                 "filter": {
-                    "name": "troubadour-terminal",
+                    "name": "troubadour_terminal",
                     "kind": "bin"
                 },
                 "cwd": "${workspaceFolder}/terminal_ui",
@@ -32,11 +32,11 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=troubadour-terminal",
-                    "--package=troubadour-terminal"
+                    "--bin=troubadour_terminal",
+                    "--package=troubadour_terminal"
                 ],
                 "filter": {
-                    "name": "troubadour-terminal",
+                    "name": "troubadour_terminal",
                     "kind": "bin"
                 },
                 "cwd": "${workspaceFolder}/terminal_ui",
@@ -52,11 +52,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=troubadour-freya",
-                    "--package=troubadour-freya"
+                    "--bin=troubadour_freya",
+                    "--package=troubadour_freya"
                 ],
                 "filter": {
-                    "name": "troubadour-freya",
+                    "name": "troubadour_freya",
                     "kind": "bin"
                 },
                 "cwd": "${workspaceFolder}/freya_ui",
@@ -73,11 +73,11 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=troubadour-freya",
-                    "--package=troubadour-freya"
+                    "--bin=troubadour_freya",
+                    "--package=troubadour_freya"
                 ],
                 "filter": {
-                    "name": "troubadour-freya",
+                    "name": "troubadour_freya",
                     "kind": "bin"
                 },
                 "cwd": "${workspaceFolder}/freya_ui",

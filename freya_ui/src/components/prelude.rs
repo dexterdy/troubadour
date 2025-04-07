@@ -1,5 +1,3 @@
-use std::thread::sleep;
-use std::time::Duration;
 use freya::prelude::*;
 
 #[component]
@@ -22,9 +20,9 @@ pub fn SplitButton(
                 direction: "horizontal",
                 main_align: "center",
                 cross_align: "center",
-                SplitLeftInnerButton { onpress, {children} }
+                SplitInnerLeftButton { onpress, {children} }
                 Separator { orientation: Orientation::Vertical }
-                SplitRightInnerButton { menu_open }
+                SplitInnerRightButton { menu_open }
             }
             if *menu_open.read() {
                 SplitInnerModal { menu_open, options }
@@ -34,7 +32,7 @@ pub fn SplitButton(
 }
 
 #[component]
-fn SplitLeftInnerButton(onpress: Option<EventHandler<()>>, children: Element) -> Element {
+fn SplitInnerLeftButton(onpress: Option<EventHandler<()>>, children: Element) -> Element {
     let theme = use_get_theme();
     let ColorsSheet {
         surface,
@@ -44,28 +42,11 @@ fn SplitLeftInnerButton(onpress: Option<EventHandler<()>>, children: Element) ->
         ..
     } = theme.colors;
 
-    let focussed = use_focus();
-    let mut status = use_signal(ButtonStatus::default);
-    let platform = use_platform();
-
-    use_drop(move || {
-        if *status.read() == ButtonStatus::Hovering {
-            platform.set_cursor(CursorIcon::default());
-        }
-    });
-
-    let onmouseenter = move |_| {
-        platform.set_cursor(CursorIcon::Pointer);
-        status.set(ButtonStatus::Hovering);
-    };
-
-    let onmouseleave = move |_| {
-        platform.set_cursor(CursorIcon::default());
-        status.set(ButtonStatus::default());
-    };
+    let focused = use_focus();
+    let (onmouseenter, onmouseleave, status) = use_hover(CursorIcon::Pointer);
 
     let onkeydown = move |ev: KeyboardEvent| {
-        if focussed.validate_keydown(&ev) {
+        if focused.validate_keydown(&ev) {
             if let Some(onpress) = &onpress {
                 onpress.call(())
             }
@@ -77,7 +58,7 @@ fn SplitLeftInnerButton(onpress: Option<EventHandler<()>>, children: Element) ->
         ButtonStatus::Idle => neutral_surface,
     };
 
-    let border = if focussed.is_focused_with_keyboard() {
+    let border = if focused.is_focused_with_keyboard() {
         format!("2 inner {focused_border}")
     } else {
         format!("1 0 1 1 inner {surface}")
@@ -85,7 +66,7 @@ fn SplitLeftInnerButton(onpress: Option<EventHandler<()>>, children: Element) ->
 
     rsx! {
         rect {
-            a11y_id: focussed.attribute(),
+            a11y_id: focused.attribute(),
             a11y_focusable: true,
             a11y_role: "button",
             background: "{background}",
@@ -107,7 +88,7 @@ fn SplitLeftInnerButton(onpress: Option<EventHandler<()>>, children: Element) ->
 }
 
 #[component]
-fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
+fn SplitInnerRightButton(menu_open: Signal<bool>) -> Element {
     let theme = use_get_theme();
     let ColorsSheet {
         surface,
@@ -118,28 +99,11 @@ fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
         ..
     } = theme.colors;
 
-    let focussed = use_focus();
-    let mut status = use_signal(ButtonStatus::default);
-    let platform = use_platform();
-
-    use_drop(move || {
-        if *status.read() == ButtonStatus::Hovering {
-            platform.set_cursor(CursorIcon::default());
-        }
-    });
-
-    let onmouseenter = move |_| {
-        platform.set_cursor(CursorIcon::Pointer);
-        status.set(ButtonStatus::Hovering);
-    };
-
-    let onmouseleave = move |_| {
-        platform.set_cursor(CursorIcon::default());
-        status.set(ButtonStatus::default());
-    };
+    let mut focused = use_focus();
+    let (onmouseenter, onmouseleave, status) = use_hover(CursorIcon::Pointer);
 
     let onkeydown = move |ev: KeyboardEvent| {
-        if focussed.validate_keydown(&ev) {
+        if focused.validate_keydown(&ev) {
             menu_open.toggle();
         }
     };
@@ -149,7 +113,7 @@ fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
         ButtonStatus::Idle => neutral_surface,
     };
 
-    let border = if focussed.is_focused_with_keyboard() {
+    let border = if focused.is_focused_with_keyboard() {
         format!("2 inner {focused_border}")
     } else {
         format!("1 1 1 0 inner {surface}")
@@ -157,7 +121,7 @@ fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
 
     rsx! {
         rect {
-            a11y_id: focussed.attribute(),
+            a11y_id: focused.attribute(),
             a11y_focusable: true,
             a11y_role: "button",
             background: "{background}",
@@ -170,6 +134,7 @@ fn SplitRightInnerButton(menu_open: Signal<bool>) -> Element {
             onmouseenter,
             onmouseleave,
             onclick: move |_| {
+                focused.request_focus();
                 menu_open.toggle();
             },
             onkeydown,
@@ -199,6 +164,12 @@ fn SplitInnerModal(menu_open: Signal<bool>, options: Vec<(EventHandler<()>, Elem
         prev_inner_focused.set(cur);
     });
 
+    let onglobalkeydown = move |ev: Event<KeyboardData>| {
+        if ev.key == Key::Escape {
+            menu_open.set(false);
+        }
+    };
+
     rsx! {
         rect { width: "0", height: "0",
             rect { width: "100v",
@@ -210,8 +181,14 @@ fn SplitInnerModal(menu_open: Signal<bool>, options: Vec<(EventHandler<()>, Elem
                     shadow: "0 0 8 0 rgb(0, 0, 0, 0.15)",
                     background: "{background}",
                     padding: "6",
+                    onglobalkeydown,
                     for (onpress , children) in options {
-                        SplitOptionInnerButton { onpress, menu_open, inner_focused, children }
+                        SplitInnerOptionButton {
+                            onpress,
+                            menu_open,
+                            inner_focused,
+                            children,
+                        }
                     }
                 }
             }
@@ -220,7 +197,7 @@ fn SplitInnerModal(menu_open: Signal<bool>, options: Vec<(EventHandler<()>, Elem
 }
 
 #[component]
-fn SplitOptionInnerButton(
+fn SplitInnerOptionButton(
     onpress: EventHandler<()>,
     menu_open: Signal<bool>,
     inner_focused: Signal<i32>,
@@ -234,9 +211,8 @@ fn SplitOptionInnerButton(
     } = theme.colors;
 
     let mut focused = use_focus();
-    let mut status = use_signal(ButtonStatus::default);
-    let platform = use_platform();
     let mut first_render = use_signal(|| true);
+    let (onmouseenter, onmouseleave, status) = use_hover(CursorIcon::Pointer);
 
     use_effect(move || {
         let foc = focused.is_focused();
@@ -259,22 +235,6 @@ fn SplitOptionInnerButton(
             onpress.call(());
         }
     };
-
-    let onmouseenter = move |_| {
-        platform.set_cursor(CursorIcon::Pointer);
-        status.set(ButtonStatus::Hovering);
-    };
-
-    let onmouseleave = move |_| {
-        platform.set_cursor(CursorIcon::default());
-        status.set(ButtonStatus::default());
-    };
-
-    use_drop(move || {
-        if *status.read() == ButtonStatus::Hovering {
-            platform.set_cursor(CursorIcon::default());
-        }
-    });
 
     let background = match *status.read() {
         ButtonStatus::Hovering => focused_surface.to_string(),
@@ -307,6 +267,34 @@ fn SplitOptionInnerButton(
             {children}
         }
     }
+}
+
+pub fn use_hover(
+    cursor: CursorIcon,
+) -> (
+    Box<dyn FnMut(Event<MouseData>)>,
+    Box<dyn FnMut(Event<MouseData>)>,
+    Signal<ButtonStatus>,
+) {
+    let platform = use_platform();
+    let mut status = use_signal(ButtonStatus::default);
+    let onmouseenter = move |_: Event<MouseData>| {
+        platform.set_cursor(cursor);
+        status.set(ButtonStatus::Hovering);
+    };
+
+    let onmouseleave = move |_: Event<MouseData>| {
+        platform.set_cursor(CursorIcon::default());
+        status.set(ButtonStatus::default());
+    };
+
+    use_drop(move || {
+        if *status.read() == ButtonStatus::Hovering {
+            platform.set_cursor(CursorIcon::default());
+        }
+    });
+
+    (Box::new(onmouseenter), Box::new(onmouseleave), status)
 }
 
 #[derive(Clone, PartialEq)]
