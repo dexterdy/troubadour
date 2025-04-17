@@ -1,9 +1,9 @@
-use crate::{components::SplitButton, player_ref::PlayerRef, AppState};
+use crate::{common_actions::save, components::SplitButton, player_ref::PlayerRef, AppState};
 use anyhow::Error;
 use freya::prelude::*;
-use rfd::FileDialog;
+use rfd::{AsyncFileDialog, FileDialog};
 use std::{collections::HashMap, path::PathBuf};
-use troubadour_lib::{player::Player, save};
+use troubadour_lib::player::Player;
 
 #[component]
 pub fn AddPlayer(state: Signal<AppState>) -> Element {
@@ -145,19 +145,7 @@ pub fn Stop(state: Signal<AppState>) -> Element {
 pub fn Save(state: Signal<AppState>) -> Element {
     let save = move |_| {
         spawn(async move {
-            let file = FileDialog::new().save_file();
-            if let Some(path) = file {
-                let s = state.read();
-                let _ = save(
-                    s.players
-                        .iter()
-                        .map(|(n, p)| (n.clone(), p.clone()))
-                        .collect(),
-                    &s.top_group,
-                    &s.groups,
-                    &path,
-                );
-            }
+            let _ = save(state).await;
         });
     };
 
@@ -170,7 +158,11 @@ pub fn Save(state: Signal<AppState>) -> Element {
 
 #[component]
 pub fn Load(state: Signal<AppState>) -> Element {
-    let load = move |_| {};
+    let load = move |_| {
+        // if not saved, ask whether user wants to save
+        // file browser to open save file
+        // replace data
+    };
     let merge_load = move |_: ()| {};
 
     rsx! {
