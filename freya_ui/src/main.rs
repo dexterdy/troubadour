@@ -15,6 +15,7 @@ use std::collections::HashMap;
 // TODO: error handling
 // TODO: handle no path chosen
 // TODO: saving and loading
+// TODO: file extensions
 // TODO: remove a player
 // TODO: groups
 // TODO: icons

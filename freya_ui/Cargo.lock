@@ -1755,7 +1755,7 @@ dependencies = [
 [[package]]
 name = "freya"
 version = "0.3.0-rc.4"
-source = "git+https://github.com/marc2332/freya.git#6ac1b881cf1e3111e86fa174cc7309ada346ad41"
+source = "git+https://github.com/marc2332/freya.git?branch=feat%2Fuse-popup#346e90f4ca2e4bcef394321eb5229c038fa5d6bd"
 dependencies = [
  "dioxus",
  "dioxus-core",
@@ -1776,7 +1776,7 @@ dependencies = [
 [[package]]
 name = "freya-components"
 version = "0.3.0-rc.4"
-source = "git+https://github.com/marc2332/freya.git#6ac1b881cf1e3111e86fa174cc7309ada346ad41"
+source = "git+https://github.com/marc2332/freya.git?branch=feat%2Fuse-popup#346e90f4ca2e4bcef394321eb5229c038fa5d6bd"
 dependencies = [
  "bytes",
  "dioxus",
@@ -1797,7 +1797,7 @@ dependencies = [
 [[package]]
 name = "freya-core"
 version = "0.3.0-rc.4"
-source = "git+https://github.com/marc2332/freya.git#6ac1b881cf1e3111e86fa174cc7309ada346ad41"
+source = "git+https://github.com/marc2332/freya.git?branch=feat%2Fuse-popup#346e90f4ca2e4bcef394321eb5229c038fa5d6bd"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -1823,7 +1823,7 @@ dependencies = [
 [[package]]
 name = "freya-devtools"
 version = "0.3.0-rc.4"
-source = "git+https://github.com/marc2332/freya.git#6ac1b881cf1e3111e86fa174cc7309ada346ad41"
+source = "git+https://github.com/marc2332/freya.git?branch=feat%2Fuse-popup#346e90f4ca2e4bcef394321eb5229c038fa5d6bd"
 dependencies = [
  "accesskit",
  "dioxus",
@@ -1844,7 +1844,7 @@ dependencies = [
 [[package]]
 name = "freya-elements"
 version = "0.3.0-rc.4"
-source = "git+https://github.com/marc2332/freya.git#6ac1b881cf1e3111e86fa174cc7309ada346ad41"
+source = "git+https://github.com/marc2332/freya.git?branch=feat%2Fuse-popup#346e90f4ca2e4bcef394321eb5229c038fa5d6bd"
 dependencies = [
  "dioxus-core",
  "dioxus-rsx",
@@ -1857,7 +1857,7 @@ dependencies = [
 [[package]]
 name = "freya-engine"
 version = "0.3.0-rc.4"
-source = "git+https://github.com/marc2332/freya.git#6ac1b881cf1e3111e86fa174cc7309ada346ad41"
+source = "git+https://github.com/marc2332/freya.git?branch=feat%2Fuse-popup#346e90f4ca2e4bcef394321eb5229c038fa5d6bd"
 dependencies = [
  "bitflags 2.9.0",
  "glutin",
@@ -1867,7 +1867,7 @@ dependencies = [
 [[package]]
 name = "freya-hooks"
 version = "0.3.0-rc.4"
-source = "git+https://github.com/marc2332/freya.git#6ac1b881cf1e3111e86fa174cc7309ada346ad41"
+source = "git+https://github.com/marc2332/freya.git?branch=feat%2Fuse-popup#346e90f4ca2e4bcef394321eb5229c038fa5d6bd"
 dependencies = [
  "bitflags 2.9.0",
  "bytes",
@@ -1890,7 +1890,7 @@ dependencies = [
 [[package]]
 name = "freya-native-core"
 version = "0.3.0-rc.4"
-source = "git+https://github.com/marc2332/freya.git#6ac1b881cf1e3111e86fa174cc7309ada346ad41"
+source = "git+https://github.com/marc2332/freya.git?branch=feat%2Fuse-popup#346e90f4ca2e4bcef394321eb5229c038fa5d6bd"
 dependencies = [
  "dioxus-core",
  "parking_lot",
@@ -1902,7 +1902,7 @@ dependencies = [
 [[package]]
 name = "freya-native-core-macro"
 version = "0.3.0-rc.4"
-source = "git+https://github.com/marc2332/freya.git#6ac1b881cf1e3111e86fa174cc7309ada346ad41"
+source = "git+https://github.com/marc2332/freya.git?branch=feat%2Fuse-popup#346e90f4ca2e4bcef394321eb5229c038fa5d6bd"
 dependencies = [
  "quote",
  "syn 2.0.98",
@@ -1911,7 +1911,7 @@ dependencies = [
 [[package]]
 name = "freya-winit"
 version = "0.3.0-rc.4"
-source = "git+https://github.com/marc2332/freya.git#6ac1b881cf1e3111e86fa174cc7309ada346ad41"
+source = "git+https://github.com/marc2332/freya.git?branch=feat%2Fuse-popup#346e90f4ca2e4bcef394321eb5229c038fa5d6bd"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -4872,7 +4872,7 @@ dependencies = [
 [[package]]
 name = "torin"
 version = "0.3.0-rc.4"
-source = "git+https://github.com/marc2332/freya.git#6ac1b881cf1e3111e86fa174cc7309ada346ad41"
+source = "git+https://github.com/marc2332/freya.git?branch=feat%2Fuse-popup#346e90f4ca2e4bcef394321eb5229c038fa5d6bd"
 dependencies = [
  "euclid",
  "freya-native-core",
@@ -4943,6 +4943,7 @@ name = "troubadour_freya"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-channel",
  "duration-human",
  "duration-str",
  "freya",

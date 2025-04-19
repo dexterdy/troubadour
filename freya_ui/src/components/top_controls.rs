@@ -162,11 +162,15 @@ pub fn Save(state: Signal<AppState>) -> Element {
 
 #[component]
 pub fn Load(state: Signal<AppState>) -> Element {
+    let mut name_conflict = use_signal(|| None);
+    let mut name_conflict_popup = use_popup::<NameResolution>();
+
     let load = async move || {
         let p = AsyncFileDialog::new().pick_file().await.unwrap();
         return load(p.path());
     };
-    let replace_load_inner = move || {
+
+    let replace_load = move || {
         spawn(async move {
             let new_state = load().await.unwrap();
             let mut s = state.write();
@@ -179,31 +183,93 @@ pub fn Load(state: Signal<AppState>) -> Element {
             s.groups = new_state.2;
         });
     };
-    let replace_load = move |_| {
-        if !state.peek().saved {
+
+    let merge_load = move || {
+        name_conflict.set(Some("Idiot".to_string()));
+        spawn(async move {
+            let result = name_conflict_popup.open().await;
+            dbg!(result);
+        });
+    };
+
+    let mut load_callback = move |mut inner: Box<dyn FnMut()>| {
+        if !state.read().saved {
             state.write().global_modals.show_unsaved_modal(move |r| {
-                if r == UnsavedModalResults::Saved || r == UnsavedModalResults::NotSaved {
-                    replace_load_inner()
+                if r != UnsavedModalResults::Cancelled {
+                    inner()
                 }
             });
         } else {
-            replace_load_inner()
+            inner()
         }
     };
-    let merge_load = move |_: ()| {};
 
     rsx! {
         SplitButton {
-            onpress: replace_load,
+            onpress: move |_| load_callback(Box::new(replace_load)),
             options: vec![
                 (
-                    EventHandler::new(merge_load),
+                    EventHandler::new(move |_| load_callback(Box::new(merge_load))),
                     rsx! {
-                        label { "add to soundscape" }
+                        label { "merge with soundscape" }
                     },
                 ),
             ],
             label { "load" }
+        }
+
+        if name_conflict_popup.is_open() {
+            name_conflict_modal { name: name_conflict.read().clone().unwrap() }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+enum NameResolution {
+    Skip,
+    Replace,
+    Rename(String),
+}
+
+#[component]
+fn name_conflict_modal(name: String) -> Element {
+    let mut name_input = use_signal(String::new);
+    let mut popup_answer = use_popup_answer::<NameResolution>();
+
+    rsx! {
+        Popup { close_on_escape_key: false, show_close_button: false,
+            PopupTitle {
+                label {
+                    "A player with the name {name} already exists. How do you want to resolve the conflict?"
+                }
+            }
+            PopupContent {
+                label { "New Name:" }
+                Input {
+                    value: name_input,
+                    onchange: move |e| {
+                        name_input.set(e);
+                    },
+                }
+                Button {
+                    onpress: move |_| {
+                        popup_answer.answer(NameResolution::Skip);
+                    },
+                    label { "Skip" }
+                }
+                Button {
+                    onpress: move |_| {
+                        popup_answer.answer(NameResolution::Replace);
+                    },
+                    label { "Replace" }
+                }
+                Button {
+                    onpress: move |_| {
+                        popup_answer.answer(NameResolution::Rename(name_input.read().clone()));
+                    },
+                    label { "Ok" }
+                }
+            }
         }
     }
 }

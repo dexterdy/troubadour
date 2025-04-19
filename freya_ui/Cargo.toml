@@ -9,9 +9,10 @@ license = "GPL-3.0"
 
 [dependencies]
 anyhow = "1.0.76"
+async-channel = "2.3.1"
 duration-human = "0.1.10"
 duration-str = "0.17.0"
-freya = { git = "https://github.com/marc2332/freya.git", version = "0.3.0-rc.4", features = [
+freya = { git = "https://github.com/marc2332/freya.git", branch = "feat/use-popup", features = [
     "devtools",
 ] }
 indexmap = "2.9.0"
