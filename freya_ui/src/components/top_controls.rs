@@ -1,9 +1,13 @@
-use crate::{common_actions::save, components::SplitButton, player_ref::PlayerRef, AppState};
-use anyhow::Error;
+use crate::{
+    common_actions::{save, UnsavedModalResults},
+    components::SplitButton,
+    player_ref::PlayerRef,
+    AppState,
+};
 use freya::prelude::*;
-use rfd::{AsyncFileDialog, FileDialog};
+use rfd::AsyncFileDialog;
 use std::{collections::HashMap, path::PathBuf};
-use troubadour_lib::player::Player;
+use troubadour_lib::{load, player::Player};
 
 #[component]
 pub fn AddPlayer(state: Signal<AppState>) -> Element {
@@ -14,36 +18,36 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
 
     let pick_file = move |_| {
         if !*show_pick_file.read() {
-            show_pick_file.toggle();
+            show_pick_file.set(true);
             spawn(async move {
-                let file = FileDialog::new().pick_file();
-                path.set(file);
+                let file = AsyncFileDialog::new().pick_file().await.unwrap();
+                path.set(Some(file.path().to_path_buf()));
                 if path.read().is_some() {
                     show_name_dialogue.set(true);
                 }
-                show_pick_file.toggle();
+                show_pick_file.set(false);
             });
         }
     };
 
     let done = move |_| {
         show_name_dialogue.set(false);
-        let _ = state.with_mut(|s| {
-            let name = name.read().clone();
-            let path = path.read().clone();
-            if path.is_none() {
-                return Err(Error::msg("error: no path selected"));
-            }
-            if s.players.contains_key(&name) {
-                return Err(Error::msg(format!(
-                    "error: you cannot use the name '{name}', because it is already used."
-                )));
-            }
-            let new_player = Player::new(path.unwrap(), name.clone())?;
-            s.players.insert(name.clone(), PlayerRef::new(new_player));
-            s.top_group.insert(name.clone());
-            Ok(())
-        });
+        let mut s = state.write();
+        let name = name.read().clone();
+        let path = path.read().clone();
+        // TODO
+        // if path.is_none() {
+        //     return Err(Error::msg("error: no path selected"));
+        // }
+        // if s.players.contains_key(&name) {
+        //     return Err(Error::msg(format!(
+        //         "error: you cannot use the name '{name}', because it is already used."
+        //     )));
+        // }
+        let new_player = Player::new(path.unwrap(), name.clone()).unwrap();
+        s.players.insert(name.clone(), PlayerRef::new(new_player));
+        s.top_group.insert(name.clone());
+        s.saved = false;
     };
 
     rsx! {
@@ -158,16 +162,39 @@ pub fn Save(state: Signal<AppState>) -> Element {
 
 #[component]
 pub fn Load(state: Signal<AppState>) -> Element {
-    let load = move |_| {
-        // if not saved, ask whether user wants to save
-        // file browser to open save file
-        // replace data
+    let load = async move || {
+        let p = AsyncFileDialog::new().pick_file().await.unwrap();
+        return load(p.path());
+    };
+    let replace_load_inner = move || {
+        spawn(async move {
+            let new_state = load().await.unwrap();
+            let mut s = state.write();
+            s.players = new_state
+                .0
+                .into_iter()
+                .map(|(n, p)| (n, PlayerRef::new(p)))
+                .collect();
+            s.top_group = new_state.1;
+            s.groups = new_state.2;
+        });
+    };
+    let replace_load = move |_| {
+        if !state.peek().saved {
+            state.write().global_modals.show_unsaved_modal(move |r| {
+                if r == UnsavedModalResults::Saved || r == UnsavedModalResults::NotSaved {
+                    replace_load_inner()
+                }
+            });
+        } else {
+            replace_load_inner()
+        }
     };
     let merge_load = move |_: ()| {};
 
     rsx! {
         SplitButton {
-            onpress: load,
+            onpress: replace_load,
             options: vec![
                 (
                     EventHandler::new(merge_load),

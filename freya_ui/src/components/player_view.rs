@@ -35,6 +35,7 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
         player_clone.with_mut(|p| {
             p.volume((new_volume * 0.02) as f32, state.read().master_volume);
         });
+        state.write().saved = false;
     };
 
     let mut cut_start_input = use_signal(|| duration_to_string(player_borrow.cut_start, false));
@@ -46,6 +47,7 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                 let _ = p.cut_start(cut);
             });
         }
+        state.write().saved = false;
     };
 
     let mut cut_end_input = use_signal(|| duration_to_string(player_borrow.cut_end, false));
@@ -57,6 +59,7 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                 let _ = p.cut_end(cut);
             });
         }
+        state.write().saved = false;
     };
 
     let player_clone = player.clone();
@@ -64,6 +67,7 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
         player_clone.with_mut(|p| {
             let _ = p.toggle_loop(!p.looping, p.loop_gap);
         });
+        state.write().saved = false;
     };
 
     let mut loop_gap_input = use_signal(|| duration_to_string(player_borrow.loop_gap, false));
@@ -75,6 +79,7 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                 let _ = p.toggle_loop(p.looping, gap);
             });
         }
+        state.write().saved = false;
     };
 
     let mut delay_input = use_signal(|| duration_to_string(player_borrow.delay_length, false));
@@ -86,6 +91,7 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                 let _ = p.set_delay(delay);
             });
         }
+        state.write().saved = false;
     };
 
     rsx! {
