@@ -1,5 +1,5 @@
 use crate::{
-    common_actions::{save, UnsavedModalResults},
+    common_actions::{save, UnsavedModalResult},
     components::SplitButton,
     player_ref::PlayerRef,
     AppState,
@@ -162,8 +162,8 @@ pub fn Save(state: Signal<AppState>) -> Element {
 
 #[component]
 pub fn Load(state: Signal<AppState>) -> Element {
-    let mut name_conflict = use_signal(|| None);
-    let mut name_conflict_popup = use_popup::<NameResolution>();
+    let mut unsaved_modal = use_context::<UsePopup<(), UnsavedModalResult>>();
+    let mut name_conflict_popup = use_popup::<(String, String), NameResolution>();
 
     let load = async move || {
         let p = AsyncFileDialog::new().pick_file().await.unwrap();
@@ -185,23 +185,86 @@ pub fn Load(state: Signal<AppState>) -> Element {
     };
 
     let merge_load = move || {
-        name_conflict.set(Some("Idiot".to_string()));
         spawn(async move {
-            let result = name_conflict_popup.open().await;
-            dbg!(result);
+            let mut state = state.write();
+            let mut new_state = load().await.unwrap();
+
+            for (n, mut p) in new_state.0 {
+                if state.players.contains_key(&n) {
+                    match name_conflict_popup
+                        .open(("A player".to_string(), n.clone()))
+                        .await
+                        .clone()
+                        .unwrap()
+                    {
+                        NameResolution::Skip => {
+                            new_state.1.shift_remove(&n);
+                            for (_, g) in &mut new_state.2 {
+                                g.shift_remove(&n);
+                            }
+                        }
+                        NameResolution::Replace => {
+                            state.players.insert(n.clone(), PlayerRef::new(p));
+                            state.top_group.shift_remove(&n);
+                            for (_, g) in &mut state.groups {
+                                g.shift_remove(&n);
+                            }
+                        }
+                        NameResolution::Rename(new_name) => {
+                            p.name = new_name.clone();
+                            if new_state.1.contains(&n) {
+                                // puts new_name in same position as old_name was
+                                new_state.1.insert(new_name.clone());
+                                new_state.1.swap_remove(&n);
+                            }
+                            for (_, g) in &mut new_state.2 {
+                                g.insert(new_name.clone());
+                                g.swap_remove(&n);
+                            }
+                            state.players.insert(new_name, PlayerRef::new(p));
+                        }
+                    }
+                } else {
+                    state.players.insert(n, PlayerRef::new(p));
+                }
+            }
+            state.top_group.append(&mut new_state.1);
+
+            for (n, g) in new_state.2 {
+                if state.players.contains_key(&n) {
+                    match name_conflict_popup
+                        .open(("A group".to_string(), n.clone()))
+                        .await
+                        .clone()
+                        .unwrap()
+                    {
+                        NameResolution::Skip => {}
+                        NameResolution::Replace => {
+                            state.groups.insert(n, g);
+                        }
+                        NameResolution::Rename(new_name) => {
+                            state.groups.insert(new_name, g);
+                        }
+                    }
+                } else {
+                    state.groups.insert(n, g);
+                }
+            }
         });
     };
 
-    let mut load_callback = move |mut inner: Box<dyn FnMut()>| {
-        if !state.read().saved {
-            state.write().global_modals.show_unsaved_modal(move |r| {
-                if r != UnsavedModalResults::Cancelled {
+    let load_callback = move |mut inner: Box<dyn FnMut()>| {
+        spawn(async move {
+            if !state.read().saved {
+                let res = unsaved_modal.open(()).await;
+                let res = res.as_ref().unwrap();
+                if *res != UnsavedModalResult::Cancelled {
                     inner()
                 }
-            });
-        } else {
-            inner()
-        }
+            } else {
+                inner()
+            }
+        });
     };
 
     rsx! {
@@ -219,7 +282,7 @@ pub fn Load(state: Signal<AppState>) -> Element {
         }
 
         if name_conflict_popup.is_open() {
-            name_conflict_modal { name: name_conflict.read().clone().unwrap() }
+            name_conflict_modal {}
         }
     }
 }
@@ -232,15 +295,16 @@ enum NameResolution {
 }
 
 #[component]
-fn name_conflict_modal(name: String) -> Element {
+fn name_conflict_modal() -> Element {
     let mut name_input = use_signal(String::new);
-    let mut popup_answer = use_popup_answer::<NameResolution>();
+    let mut popup_answer = use_popup_answer::<(String, String), NameResolution>();
+    let (thing, name) = popup_answer.data().clone().unwrap();
 
     rsx! {
         Popup { close_on_escape_key: false, show_close_button: false,
             PopupTitle {
                 label {
-                    "A player with the name {name} already exists. How do you want to resolve the conflict?"
+                    "{thing} with the name {name} already exists. How do you want to resolve the conflict?"
                 }
             }
             PopupContent {

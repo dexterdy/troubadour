@@ -6,6 +6,7 @@ use rodio::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    fmt::Debug,
     fs::File,
     path::PathBuf,
     time::{Duration, Instant},
@@ -84,6 +85,27 @@ pub struct Player {
     pub delay_length: Duration,
     pub cut_end: Duration,
     pub cut_start: Duration,
+}
+
+impl Debug for Player {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Player")
+            .field("media", &self.media)
+            .field("last_time_poll", &self.last_time_poll)
+            .field("time_at_last_poll", &self.time_at_last_poll)
+            .field("name", &self.name)
+            .field("base_length", &self.base_length)
+            .field("group", &self.group)
+            .field("playing", &self.playing)
+            .field("paused", &self.paused)
+            .field("volume", &self.volume)
+            .field("looping", &self.looping)
+            .field("loop_gap", &self.loop_gap)
+            .field("delay_length", &self.delay_length)
+            .field("cut_end", &self.cut_end)
+            .field("cut_start", &self.cut_start)
+            .finish()
+    }
 }
 
 macro_rules! optional {

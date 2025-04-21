@@ -4,31 +4,29 @@ use rfd::AsyncFileDialog;
 
 use crate::AppState;
 
-pub struct ModalConfig<T> {
-    pub(super) continuations: Vec<Box<dyn FnMut(T)>>,
-    pub(super) shown: bool,
-}
-
 #[derive(PartialEq)]
-pub enum UnsavedModalResults {
+pub enum UnsavedModalResult {
     Saved,
     NotSaved,
     Cancelled,
 }
 
-pub struct GlobalModals {
-    pub(super) unsaved_modal: ModalConfig<UnsavedModalResults>,
-}
+#[component]
+pub fn GlobalModals(state: Signal<AppState>, children: Element) -> Element {
+    let unsaved_popup = use_popup::<(), UnsavedModalResult>();
+    use_context_provider(|| unsaved_popup);
 
-impl GlobalModals {
-    pub fn show_unsaved_modal<F: FnMut(UnsavedModalResults) + 'static>(&mut self, f: F) {
-        self.unsaved_modal.continuations.push(Box::new(f));
-        self.unsaved_modal.shown = true;
+    rsx! {
+        if unsaved_popup.is_open() {
+            UnsavedModal { state }
+        }
+        {children}
     }
 }
 
 #[component]
 pub fn UnsavedModal(state: Signal<AppState>) -> Element {
+    let mut unsaved_answer = use_popup_answer::<(), UnsavedModalResult>();
     let mut show_file_pick = use_signal(|| false);
 
     let save = move |_| {
@@ -36,56 +34,35 @@ pub fn UnsavedModal(state: Signal<AppState>) -> Element {
             show_file_pick.set(true);
             spawn(async move {
                 let _ = save(state).await;
-                let modals = &mut state.write().global_modals;
-                for cont in &mut modals.unsaved_modal.continuations {
-                    (cont)(UnsavedModalResults::Saved)
-                }
-                modals.unsaved_modal.continuations.clear();
-                modals.unsaved_modal.shown = false;
                 show_file_pick.set(false);
+                unsaved_answer.answer(UnsavedModalResult::Saved);
             });
         }
     };
 
     let cancel = move |_| {
-        spawn(async move {
-            let modals = &mut state.write().global_modals;
-            for cont in &mut modals.unsaved_modal.continuations {
-                (cont)(UnsavedModalResults::Cancelled)
-            }
-            modals.unsaved_modal.continuations.clear();
-            modals.unsaved_modal.shown = false;
-        });
+        unsaved_answer.answer(UnsavedModalResult::Cancelled);
     };
 
     let not_save = move |_| {
-        spawn(async move {
-            let modals = &mut state.write().global_modals;
-            for cont in &mut modals.unsaved_modal.continuations {
-                (cont)(UnsavedModalResults::NotSaved)
-            }
-            modals.unsaved_modal.continuations.clear();
-            modals.unsaved_modal.shown = false;
-        });
+        unsaved_answer.answer(UnsavedModalResult::NotSaved);
     };
 
     rsx! {
-        if state.read().global_modals.unsaved_modal.shown {
-            Popup { show_close_button: false, close_on_escape_key: false,
-                PopupTitle {
-                    label { "You have unsaved changes. Do you want to save?" }
+        Popup { show_close_button: false, close_on_escape_key: false,
+            PopupTitle {
+                label { "You have unsaved changes. Do you want to save?" }
+            }
+            PopupContent {
+                label { "Unsaved changes will be lost." }
+                Button { onclick: save,
+                    label { "Save" }
                 }
-                PopupContent {
-                    label { "Unsaved changes will be lost." }
-                    Button { onclick: save,
-                        label { "Save" }
-                    }
-                    Button { onclick: not_save,
-                        label { "Don't Save" }
-                    }
-                    Button { onclick: cancel,
-                        label { "Cancel" }
-                    }
+                Button { onclick: not_save,
+                    label { "Don't Save" }
+                }
+                Button { onclick: cancel,
+                    label { "Cancel" }
                 }
             }
         }

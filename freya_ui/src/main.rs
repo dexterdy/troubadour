@@ -2,7 +2,7 @@ mod common_actions;
 mod components;
 mod player_ref;
 
-use common_actions::{GlobalModals, ModalConfig, UnsavedModal};
+use common_actions::GlobalModals;
 use components::{
     player_view::PlayerView,
     top_controls::{AddPlayer, Load, MasterVolume, PausePlay, Save, Stop},
@@ -12,16 +12,25 @@ use indexmap::{IndexMap, IndexSet};
 use player_ref::PlayerRef;
 use std::collections::HashMap;
 
-// TODO: error handling
-// TODO: handle no path chosen
-// TODO: saving and loading
-// TODO: file extensions
-// TODO: remove a player
-// TODO: groups
-// TODO: icons
-// TODO: theming
-// TODO: layout
+/*
+TODO: error handling
+TODO: handle no path chosen
+TODO: file extensions
+TODO: grouping
+TODO: icons
+TODO: theming
+TODO: layout
+TODO: dark/light mode
+TODO: player context menu (remove, add to group, cross fade, etc)
+TODO: group context menu (remove, remove and remove players, combine with, cross fade, etc)
+TODO: cross fade
 
+You can cross fade from a context menu, in which case a cross fade of a default shape and length happens.
+You can also create and save cross fades. You can select the shape and length of the cross fade.
+This cross fade is then displayed as a button underneath the player/group
+*/
+
+#[derive(Debug)]
 struct AppState {
     pub players: HashMap<String, PlayerRef>,
     pub top_group: IndexSet<String>,
@@ -29,7 +38,6 @@ struct AppState {
     pub saved: bool,
     pub global_paused: bool,
     pub master_volume: f32,
-    pub global_modals: GlobalModals,
 }
 
 impl Default for AppState {
@@ -41,12 +49,6 @@ impl Default for AppState {
             saved: true,
             global_paused: Default::default(),
             master_volume: 1.0,
-            global_modals: GlobalModals {
-                unsaved_modal: ModalConfig {
-                    continuations: Vec::new(),
-                    shown: false,
-                },
-            },
         }
     }
 }
@@ -61,17 +63,18 @@ fn app() -> Element {
     let state_lock = state.read();
 
     rsx! {
-        UnsavedModal { state }
-        rect { direction: "horizontal", width: "fill",
-            AddPlayer { state }
-            PausePlay { state }
-            Stop { state }
-            Save { state }
-            Load { state }
-            MasterVolume { state }
-        }
-        for (_ , p) in state_lock.players.clone() {
-            PlayerView { player: p, state }
+        GlobalModals { state,
+            rect { direction: "horizontal", width: "fill",
+                AddPlayer { state }
+                PausePlay { state }
+                Stop { state }
+                Save { state }
+                Load { state }
+                MasterVolume { state }
+            }
+            for (_ , p) in state_lock.players.clone() {
+                PlayerView { player: p, state }
+            }
         }
     }
 }

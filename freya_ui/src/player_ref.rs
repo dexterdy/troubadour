@@ -1,4 +1,4 @@
-use std::{panic::Location, rc::Rc};
+use std::{fmt::Debug, panic::Location, rc::Rc};
 
 use freya::prelude::{Readable, ReadableRef, Signal, Writable};
 use troubadour_lib::player::{Player, Serializable};
@@ -16,6 +16,12 @@ impl Drop for InnerPlayerRef {
 #[derive(Clone)]
 pub struct PlayerRef {
     inner: Rc<InnerPlayerRef>,
+}
+
+impl Debug for PlayerRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.player_signal.fmt(f)
+    }
 }
 
 impl PlayerRef {
