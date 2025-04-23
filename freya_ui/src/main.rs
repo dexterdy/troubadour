@@ -6,6 +6,7 @@ use common_actions::GlobalModals;
 use components::{
     player_view::PlayerView,
     top_controls::{AddPlayer, Load, MasterVolume, PausePlay, Save, Stop},
+    Orientation, Separator,
 };
 use freya::prelude::*;
 use indexmap::{IndexMap, IndexSet};
@@ -54,7 +55,10 @@ impl Default for AppState {
 }
 
 fn main() {
-    launch(app);
+    let config: LaunchConfig<'_, ()> = LaunchConfig::new()
+        .with_title("Troubadour")
+        .with_min_size(615.0, 800.0);
+    launch_cfg(app, config);
 }
 
 fn app() -> Element {
@@ -62,9 +66,16 @@ fn app() -> Element {
 
     let state_lock = state.read();
 
+    let theme = use_get_theme();
+
     rsx! {
         GlobalModals { state,
-            rect { direction: "horizontal", width: "fill",
+            rect {
+                direction: "horizontal",
+                width: "fill",
+                spacing: "5",
+                padding: "6",
+                background: "{theme.colors.neutral_surface}",
                 AddPlayer { state }
                 PausePlay { state }
                 Stop { state }
@@ -72,8 +83,11 @@ fn app() -> Element {
                 Load { state }
                 MasterVolume { state }
             }
-            for (_ , p) in state_lock.players.clone() {
-                PlayerView { player: p, state }
+            Separator { orientation: Orientation::Horizontal }
+            ScrollView { padding: "6",
+                for (_ , p) in state_lock.players.clone() {
+                    PlayerView { player: p, state }
+                }
             }
         }
     }

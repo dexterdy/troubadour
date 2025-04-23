@@ -49,10 +49,6 @@ pub fn Separator(orientation: Orientation) -> Element {
     let theme = use_get_theme();
 
     rsx! {
-        rect {
-            width,
-            height,
-            background: "{theme.colors.opposite_surface}",
-        }
+        rect { width, height, background: "{theme.colors.surface}" }
     }
 }

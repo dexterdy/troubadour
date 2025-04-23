@@ -2,7 +2,10 @@ use std::time::Duration;
 
 use crate::{player_ref::PlayerRef, AppState};
 use duration_human::DurationHuman;
-use freya::prelude::*;
+use freya::prelude::{
+    dioxus_elements::attributes::{visible_height, visible_width},
+    *,
+};
 
 #[component]
 pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
@@ -95,29 +98,48 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
     };
 
     rsx! {
-        label { "{player_borrow.name}" }
-        Button { onclick: play,
-            label { "Play" }
+        rect {
+            main_align: "space-between",
+            direction: "horizontal",
+            width: "500",
+            rect {
+                label { "{player_borrow.name}" }
+                rect { direction: "horizontal",
+                    label { "loop" }
+                    Switch {
+                        enabled: player_borrow.looping,
+                        ontoggled: toggle_loop,
+                    }
+                }
+            }
+            rect {
+                rect { direction: "horizontal",
+                    Button { onclick: play,
+                        label { "Play" }
+                    }
+                    Button { onclick: stop,
+                        label { "Stop" }
+                    }
+                    Button { onclick: pause,
+                        label { "Pause" }
+                    }
+                }
+                label { width: "0", height: "0", a11y_hidden: true, "volume" }
+                Slider {
+                    value: (player_borrow.volume * 50.0) as f64,
+                    onmoved: set_volume,
+                }
+            }
         }
-        Button { onclick: stop,
-            label { "Stop" }
-        }
-        Button { onclick: pause,
-            label { "Pause" }
-        }
-        label { "volume" }
-        Slider { value: (player_borrow.volume * 50.0) as f64, onmoved: set_volume }
-        label { "cut start" }
-        Input { value: cut_start_input, onchange: cut_start }
-        label { "cut end" }
-        Input { value: cut_end_input, onchange: cut_end }
-        label { "loop" }
-        Switch { enabled: player_borrow.looping, ontoggled: toggle_loop }
-        label { "loop gap" }
-        Input { value: loop_gap_input, onchange: set_loop_gap }
-        label { "delay" }
-        Input { value: delay_input, onchange: set_delay }
     }
+    // label { "cut start" }
+    // Input { value: cut_start_input, onchange: cut_start }
+    // label { "cut end" }
+    // Input { value: cut_end_input, onchange: cut_end }
+    // label { "loop gap" }
+    // Input { value: loop_gap_input, onchange: set_loop_gap }
+    // label { "delay" }
+    // Input { value: delay_input, onchange: set_delay }
 }
 
 pub fn duration_to_string(dur: Duration, no_smaller_than_secs: bool) -> String {

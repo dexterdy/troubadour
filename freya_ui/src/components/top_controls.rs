@@ -359,6 +359,7 @@ pub fn MasterVolume(state: Signal<AppState>) -> Element {
     rsx! {
         rect {
             width: "fill",
+            min_width: "150",
             height: "29",
             main_align: "center",
             cross_align: "end",
