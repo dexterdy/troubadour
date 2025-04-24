@@ -103,12 +103,19 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
             direction: "horizontal",
             width: "fill",
             rect {
-                label { height: "40", main_align: "center", "{player_borrow.name}" }
+                label {
+                    height: "40",
+                    main_align: "center",
+                    font_size: "20",
+                    font_weight: "bold",
+                    "{player_borrow.name}"
+                }
                 rect {
                     height: "40",
                     cross_align: "center",
                     direction: "horizontal",
-                    label { "loop" }
+                    spacing: "5",
+                    label { "loop:" }
                     Switch {
                         enabled: player_borrow.looping,
                         ontoggled: toggle_loop,
@@ -116,8 +123,10 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                 }
             }
             rect {
+                content: "fit",
                 rect {
                     height: "40",
+                    width: "fill-min",
                     cross_align: "center",
                     direction: "horizontal",
                     spacing: "5",
@@ -131,10 +140,9 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                         label { "Pause" }
                     }
                 }
-                rect { height: "40", cross_align: "center", width: "191",
+                rect { height: "40", main_align: "center", width: "fill-min",
                     label { width: "0", height: "0", a11y_hidden: true, "volume" }
                     Slider {
-                        size: "191",
                         value: (player_borrow.volume * 50.0) as f64,
                         onmoved: set_volume,
                     }

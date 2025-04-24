@@ -24,6 +24,7 @@ pub struct Serializable {
     cut_start: Duration,
 }
 
+#[allow(dead_code)]
 struct Audio {
     stream: OutputStream,
     handle: OutputStreamHandle,
@@ -39,13 +40,13 @@ impl Audio {
             variant: ErrorVariant::AudioDeviceSetupFailed,
             source: Some(e.into()),
         })?;
-        
+
         let sink = Sink::try_new(&handle).map_err(|e| Error {
             msg: "error: failed to set up your audio device.".to_string(),
             variant: ErrorVariant::AudioDeviceSetupFailed,
             source: Some(e.into()),
         })?;
-        
+
         let file = File::open(&media)
             .map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?;
 
