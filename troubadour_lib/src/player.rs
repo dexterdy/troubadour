@@ -1,5 +1,4 @@
-#![allow(dead_code)]
-
+use crate::error::{convert_read_file_error, Error, ErrorVariant, FileKind};
 use rodio::{
     source::{Buffered, Zero},
     Decoder, OutputStream, OutputStreamHandle, Sink, Source,
@@ -11,8 +10,6 @@ use std::{
     path::PathBuf,
     time::{Duration, Instant},
 };
-
-use crate::error::{convert_read_file_error, Error, ErrorVariant, FileKind};
 
 #[derive(Serialize, Deserialize)]
 pub struct Serializable {
@@ -32,6 +29,7 @@ struct Audio {
     handle: OutputStreamHandle,
     sink: Sink,
     source: Buffered<Decoder<File>>,
+    length: Duration,
 }
 
 impl Audio {
@@ -41,14 +39,16 @@ impl Audio {
             variant: ErrorVariant::AudioDeviceSetupFailed,
             source: Some(e.into()),
         })?;
+        
         let sink = Sink::try_new(&handle).map_err(|e| Error {
             msg: "error: failed to set up your audio device.".to_string(),
             variant: ErrorVariant::AudioDeviceSetupFailed,
             source: Some(e.into()),
         })?;
-
+        
         let file = File::open(&media)
             .map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?;
+
         let source = Decoder::new(file)
             .map_err(|e| {
                 Error {
@@ -57,14 +57,21 @@ impl Audio {
                     variant: ErrorVariant::DecoderFailed,
                     source: Some(e.into()),
                 }
-            })?
-            .buffered();
+            })?.buffered();
+
+        let length = source.total_duration().unwrap_or_else(|| {
+            Duration::from_secs_f64(
+                (source.clone().count() as f64 / source.channels() as f64)
+                    / source.sample_rate() as f64,
+            )
+        });
 
         Ok(Self {
             stream,
             handle,
             sink,
             source,
+            length,
         })
     }
 }
@@ -132,7 +139,7 @@ macro_rules! optional {
 impl Player {
     pub fn new(media: PathBuf, name: String) -> Result<Self, Error> {
         let audio = Audio::new(&media)?;
-        let length = audio.source.total_duration().unwrap();
+        let length = audio.length.clone();
 
         Ok(Self {
             audio,
@@ -155,7 +162,7 @@ impl Player {
 
     pub fn copy(&self, new_name: &str) -> Result<Self, Error> {
         let audio = Audio::new(&self.media)?;
-        let length = audio.source.total_duration().unwrap();
+        let length = audio.length.clone();
 
         Ok(Self {
             audio,
@@ -345,6 +352,9 @@ impl Player {
         self.playing && !self.audio.sink.empty() && !self.paused && !self.audio.sink.is_paused()
     }
 
+    //noinspection RsLiveness
+    //noinspection RsBorrowChecker
+    //noinspection RsCallExpr
     fn apply_settings(&self, play_if_not_playing: bool, start_at: Duration) -> Result<(), Error> {
         let was_playing = self.get_is_playing();
 
@@ -392,7 +402,7 @@ impl Player {
 
     pub(crate) fn from_serializable(player: &Serializable) -> Result<Self, Error> {
         let audio = Audio::new(&player.media)?;
-        let length = audio.source.total_duration().unwrap();
+        let length = audio.length.clone();
 
         let mut new_player = Self {
             audio,
