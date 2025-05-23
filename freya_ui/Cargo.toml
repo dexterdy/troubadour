@@ -10,6 +10,7 @@ license = "GPL-3.0"
 [dependencies]
 anyhow = "1.0.76"
 async-channel = "2.3.1"
+dioxus = "0.6.3"
 duration-human = "0.1.10"
 duration-str = "0.17.0"
 freya = { git = "https://github.com/marc2332/freya.git", features = [

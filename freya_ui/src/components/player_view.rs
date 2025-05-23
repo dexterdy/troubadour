@@ -2,13 +2,14 @@ use std::time::Duration;
 
 use crate::{player_ref::PlayerRef, AppState};
 use duration_human::DurationHuman;
-use freya::prelude::{
-    dioxus_elements::attributes::{visible_height, visible_width},
-    *,
-};
+use freya::prelude::*;
+
+import_svg!(LoopIcon, "../../icons/loop-arrow-symbolic.svg", { fill: "", width: "20", height: "20" });
 
 #[component]
 pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
+    let theme = use_get_theme();
+
     let player_clone = player.clone();
     let player_borrow = player_clone.read();
 
@@ -110,20 +111,16 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                     font_weight: "bold",
                     "{player_borrow.name}"
                 }
-                rect {
-                    height: "40",
-                    cross_align: "center",
-                    direction: "horizontal",
-                    spacing: "5",
-                    label { "loop:" }
-                    Switch {
-                        enabled: player_borrow.looping,
-                        ontoggled: toggle_loop,
-                    }
+                Button {
+                    onclick: toggle_loop,
+                    theme: theme_with!(
+                        ButtonTheme { background : if player_borrow.looping { theme.button
+                        .hover_background } else { theme.button.background }, padding : "4 8".into() }
+                    ),
+                    LoopIcon { fill: if player_borrow.looping { theme.colors.primary.to_string() } else { theme.colors.solid.to_string() } }
                 }
             }
-            rect {
-                content: "fit",
+            rect { content: "fit",
                 rect {
                     height: "40",
                     width: "fill-min",

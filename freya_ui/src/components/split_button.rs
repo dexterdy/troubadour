@@ -89,6 +89,8 @@ fn SplitInnerLeftButton(onpress: Option<EventHandler<()>>, children: Element) ->
     }
 }
 
+import_svg!(DownCaretIcon, "../../icons/down-small-symbolic.svg", { fill: "", rotate: "", width: "16", height: "16" });
+
 #[component]
 fn SplitInnerRightButton(menu_open: Signal<bool>) -> Element {
     let theme = use_get_theme();
@@ -129,7 +131,7 @@ fn SplitInnerRightButton(menu_open: Signal<bool>) -> Element {
             background: "{background}",
             main_align: "center",
             cross_align: "center",
-            padding: "6 12",
+            padding: "0 4",
             corner_radius: "0 6 6 0",
             border,
             height: "100%",
@@ -140,7 +142,7 @@ fn SplitInnerRightButton(menu_open: Signal<bool>) -> Element {
                 menu_open.toggle();
             },
             onkeydown,
-            TickIcon { fill: "{solid}" }
+            DownCaretIcon { fill: "{solid}", rotate: if *menu_open.read() { "180deg" } else { "" } }
         }
     }
 }
