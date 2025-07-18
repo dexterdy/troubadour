@@ -1,15 +1,11 @@
-use std::time::Duration;
-
+use crate::components::ToggleButton;
 use crate::{player_ref::PlayerRef, AppState};
 use duration_human::DurationHuman;
 use freya::prelude::*;
-
-import_svg!(LoopIcon, "../../icons/loop-arrow-symbolic.svg", { fill: "", width: "20", height: "20" });
+use std::time::Duration;
 
 #[component]
 pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
-    let theme = use_get_theme();
-
     let player_clone = player.clone();
     let player_borrow = player_clone.read();
 
@@ -111,13 +107,11 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                     font_weight: "bold",
                     "{player_borrow.name}"
                 }
-                Button {
-                    onclick: toggle_loop,
-                    theme: theme_with!(
-                        ButtonTheme { background : if player_borrow.looping { theme.button
-                        .hover_background } else { theme.button.background }, padding : "4 8".into() }
-                    ),
-                    LoopIcon { fill: if player_borrow.looping { theme.colors.primary.to_string() } else { theme.colors.solid.to_string() } }
+                ToggleButton {
+                    ontoggle: toggle_loop,
+                    width: "20",
+                    height: "20",
+                    svg_data: include_bytes!("../../icons/loop-arrow-symbolic.svg")
                 }
             }
             rect { content: "fit",

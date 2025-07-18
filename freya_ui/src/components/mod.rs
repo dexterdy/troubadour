@@ -52,3 +52,33 @@ pub fn Separator(orientation: Orientation) -> Element {
         rect { width, height, background: "{theme.colors.surface}" }
     }
 }
+
+#[component]
+pub fn ToggleButton(
+    ontoggle: Option<EventHandler<bool>>,
+    width: Option<String>,
+    height: Option<String>,
+    svg_data: &'static [u8],
+) -> Element {
+    let theme = use_get_theme();
+    let mut toggled = use_signal(|| false);
+
+    rsx! {
+        Button{
+            onpress: move |_| {
+                toggled.toggle();
+                ontoggle.map(|c| c(*toggled.peek()));
+            },
+            theme: theme_with!(
+                ButtonTheme { background : if *toggled.read() { theme.button
+                .hover_background } else { theme.button.background }, padding : "4 8".into() }
+            ),
+            svg {
+                fill: if *toggled.read() { theme.colors.primary.to_string() } else { theme.colors.solid.to_string() },
+                width: width,
+                height: height,
+                svg_data: static_bytes(svg_data)
+            }
+        }
+    }
+}

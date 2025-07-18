@@ -178,6 +178,7 @@ fn SplitInnerModal(menu_open: Signal<bool>, options: Vec<(EventHandler<()>, Elem
         rect { width: "0", height: "0",
             rect { width: "100v",
                 rect {
+                    layer: "-1000",
                     a11y_modal: true,
                     margin: "5 0 0 0",
                     border: "1 inner {surface}",
