@@ -1,4 +1,4 @@
-use crate::components::ToggleButton;
+use crate::components::{use_polling, ToggleButton};
 use crate::{player_ref::PlayerRef, AppState};
 use duration_human::DurationHuman;
 use freya::prelude::*;
@@ -8,6 +8,18 @@ use std::time::Duration;
 pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
     let player_clone = player.clone();
     let player_borrow = player_clone.read();
+
+    let player_clone = player.clone();
+    let is_playing = use_polling(
+        move || player_clone.read().get_is_playing(),
+        player_borrow.get_is_playing(),
+    );
+
+    let player_clone = player.clone();
+    let is_paused = use_polling(
+        move || player_clone.read().get_is_paused(),
+        player_borrow.get_is_paused(),
+    );
 
     let player_clone = player.clone();
     let play = move |_| {
@@ -95,43 +107,49 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
     };
 
     rsx! {
-        rect {
-            main_align: "space-between",
-            direction: "horizontal",
-            width: "fill",
+        rect { direction: "horizontal", spacing: "5",
             rect {
-                label {
-                    height: "40",
-                    main_align: "center",
-                    font_size: "20",
-                    font_weight: "bold",
-                    "{player_borrow.name}"
-                }
+                label { height: "28", font_size: "20", font_weight: "bold", "{player_borrow.name}" }
                 ToggleButton {
-                    ontoggle: toggle_loop,
+                    toggled: player_borrow.looping,
+                    onpress: toggle_loop,
                     width: "20",
                     height: "20",
-                    svg_data: include_bytes!("../../icons/loop-arrow-symbolic.svg")
+                    svg_data: include_bytes!("../../icons/loop-arrow-symbolic.svg"),
                 }
             }
             rect { content: "fit",
                 rect {
-                    height: "40",
+                    height: "28",
                     width: "fill-min",
                     cross_align: "center",
                     direction: "horizontal",
                     spacing: "5",
-                    Button { onclick: play,
-                        label { "Play" }
+                    ToggleButton {
+                        toggled: *is_playing.read(),
+                        onpress: play,
+                        width: "20",
+                        height: "20",
+                        svg_data: include_bytes!("../../icons/media-playback-start-symbolic.svg"),
                     }
-                    Button { onclick: stop,
-                        label { "Stop" }
+                    Button {
+                        onpress: stop,
+                        theme: theme_with!(ButtonTheme { padding : "4 8".into() }),
+                        svg {
+                            width: "20",
+                            height: "20",
+                            svg_data: static_bytes(include_bytes!("../../icons/media-playback-stop-symbolic.svg")),
+                        }
                     }
-                    Button { onclick: pause,
-                        label { "Pause" }
+                    ToggleButton {
+                        toggled: *is_paused.read(),
+                        onpress: pause,
+                        width: "20",
+                        height: "20",
+                        svg_data: include_bytes!("../../icons/media-playback-pause-symbolic.svg"),
                     }
                 }
-                rect { height: "40", main_align: "center", width: "fill-min",
+                rect { height: "28", main_align: "center", width: "fill-min",
                     label { width: "0", height: "0", a11y_hidden: true, "volume" }
                     Slider {
                         value: (player_borrow.volume * 50.0) as f64,

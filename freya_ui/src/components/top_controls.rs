@@ -51,8 +51,14 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
     };
 
     rsx! {
-        Button { onclick: pick_file,
-            label { "Add" }
+        Button {
+            onclick: pick_file,
+            theme: theme_with!(ButtonTheme { padding : "4 8".into() }),
+            svg {
+                width: "20",
+                height: "20",
+                svg_data: static_bytes(include_bytes!("../../icons/list-add-symbolic.svg")),
+            }
         }
         if *show_name_dialogue.read() {
             Popup { oncloserequest: move |_| { show_name_dialogue.set(false) },
@@ -114,12 +120,20 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
     };
 
     rsx! {
-        Button { onclick: pause_or_play,
-            label {
-                if state.read().global_paused {
-                    "Play"
-                } else {
-                    "Pause"
+        Button {
+            onclick: pause_or_play,
+            theme: theme_with!(ButtonTheme { padding : "4 8".into() }),
+            if state.read().global_paused {
+                svg {
+                    width: "20",
+                    height: "20",
+                    svg_data: static_bytes(include_bytes!("../../icons/media-playback-start-symbolic.svg")),
+                }
+            } else {
+                svg {
+                    width: "20",
+                    height: "20",
+                    svg_data: static_bytes(include_bytes!("../../icons/media-playback-pause-symbolic.svg")),
                 }
             }
         }
@@ -139,8 +153,14 @@ pub fn Stop(state: Signal<AppState>) -> Element {
     };
 
     rsx! {
-        Button { onclick: stop,
-            label { "Stop" }
+        Button {
+            onclick: stop,
+            theme: theme_with!(ButtonTheme { padding : "4 8".into() }),
+            svg {
+                width: "20",
+                height: "20",
+                svg_data: static_bytes(include_bytes!("../../icons/media-playback-stop-symbolic.svg")),
+            }
         }
     }
 }
@@ -154,8 +174,14 @@ pub fn Save(state: Signal<AppState>) -> Element {
     };
 
     rsx! {
-        Button { onclick: save,
-            label { "Save" }
+        Button {
+            onclick: save,
+            theme: theme_with!(ButtonTheme { padding : "4 8".into() }),
+            svg {
+                width: "20",
+                height: "20",
+                svg_data: static_bytes(include_bytes!("../../icons/save-symbolic.svg")),
+            }
         }
     }
 }

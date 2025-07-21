@@ -18,4 +18,5 @@ freya = { version = "0.3.4", features = [
 ] }
 indexmap = "2.9.0"
 rfd = "0.15.3"
+tokio = "1.46.1"
 troubadour_lib = { path = "../troubadour_lib" }

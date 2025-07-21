@@ -2,8 +2,11 @@ pub mod player_view;
 pub mod split_button;
 pub mod top_controls;
 
+use std::time::Duration;
+
 pub use crate::components::split_button::SplitButton;
 use freya::prelude::*;
+use tokio::time::sleep;
 
 pub fn use_hover(
     cursor: CursorIcon,
@@ -33,6 +36,28 @@ pub fn use_hover(
     (Box::new(onmouseenter), Box::new(onmouseleave), status)
 }
 
+pub fn use_polling<T: PartialEq + 'static, F: Fn() -> T + 'static + Clone>(
+    polling_function: F,
+    intial_value: T,
+) -> Signal<T> {
+    let mut signal = use_signal(|| intial_value);
+
+    use_future(move || {
+        let value = polling_function.clone();
+        async move {
+            loop {
+                let current = value();
+                if *signal.peek() != current {
+                    signal.set(current);
+                }
+                sleep(Duration::from_millis(200)).await;
+            }
+        }
+    });
+
+    signal
+}
+
 #[derive(Clone, PartialEq)]
 pub enum Orientation {
     Horizontal,
@@ -55,29 +80,29 @@ pub fn Separator(orientation: Orientation) -> Element {
 
 #[component]
 pub fn ToggleButton(
-    ontoggle: Option<EventHandler<bool>>,
+    toggled: Option<bool>,
+    onpress: Option<EventHandler<()>>,
     width: Option<String>,
     height: Option<String>,
     svg_data: &'static [u8],
 ) -> Element {
     let theme = use_get_theme();
-    let mut toggled = use_signal(|| false);
+    let toggled = toggled.unwrap_or(false);
 
     rsx! {
-        Button{
+        Button {
             onpress: move |_| {
-                toggled.toggle();
-                ontoggle.map(|c| c(*toggled.peek()));
+                onpress.map(|c| c(()));
             },
             theme: theme_with!(
-                ButtonTheme { background : if *toggled.read() { theme.button
-                .hover_background } else { theme.button.background }, padding : "4 8".into() }
+                ButtonTheme { background : if toggled { theme.button.hover_background } else {
+                theme.button.background }, padding : "4 8".into() }
             ),
             svg {
-                fill: if *toggled.read() { theme.colors.primary.to_string() } else { theme.colors.solid.to_string() },
-                width: width,
-                height: height,
-                svg_data: static_bytes(svg_data)
+                fill: if toggled { theme.colors.primary.to_string() } else { theme.colors.solid.to_string() },
+                width,
+                height,
+                svg_data: static_bytes(svg_data),
             }
         }
     }
