@@ -2,6 +2,8 @@ use freya::prelude::*;
 
 use crate::components::{use_hover, Orientation, Separator};
 
+// TODO: refactor to make use of freya menu's
+
 #[component]
 pub fn SplitButton(
     onpress: Option<EventHandler<()>>,

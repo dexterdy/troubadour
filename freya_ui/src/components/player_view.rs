@@ -107,7 +107,12 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
     };
 
     rsx! {
-        rect { direction: "horizontal", spacing: "5",
+        rect {
+            direction: "horizontal",
+            spacing: "10",
+            border: "1 inner black",
+            padding: "6",
+            corner_radius: "5",
             rect {
                 label { height: "28", font_size: "20", font_weight: "bold", "{player_borrow.name}" }
                 ToggleButton {
