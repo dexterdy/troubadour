@@ -138,7 +138,6 @@ fn SplitInnerRightButton(menu_open: Signal<bool>) -> Element {
             onmouseenter,
             onmouseleave,
             onclick: move |_| {
-                focused.request_focus();
                 menu_open.toggle();
             },
             onkeydown,
@@ -187,8 +186,9 @@ fn SplitInnerModal(menu_open: Signal<bool>, options: Vec<(EventHandler<()>, Elem
                     background: "{background}",
                     padding: "6",
                     onglobalkeydown,
-                    for (onpress , children) in options {
+                    for (i , (onpress , children)) in options.into_iter().enumerate() {
                         SplitInnerOptionButton {
+                            is_first: i == 0,
                             onpress,
                             menu_open,
                             inner_focused,
@@ -203,6 +203,7 @@ fn SplitInnerModal(menu_open: Signal<bool>, options: Vec<(EventHandler<()>, Elem
 
 #[component]
 fn SplitInnerOptionButton(
+    is_first: bool,
     onpress: EventHandler<()>,
     menu_open: Signal<bool>,
     inner_focused: Signal<i32>,
@@ -218,6 +219,12 @@ fn SplitInnerOptionButton(
     let mut focused = use_focus();
     let mut first_render = use_signal(|| true);
     let (onmouseenter, onmouseleave, status) = use_hover(CursorIcon::Pointer);
+
+    use_hook(|| {
+        if is_first {
+            focused.request_focus();
+        }
+    });
 
     use_effect(move || {
         let foc = focused.is_focused();
