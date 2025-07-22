@@ -29,7 +29,7 @@ pub fn GlobalModals(state: Signal<AppState>, children: Element) -> Element {
         if show_error_popup.is_open() {
             UnsavedModal { state }
         }
-        { children }
+        {children}
     }
 }
 
@@ -107,7 +107,7 @@ pub fn ShowErrorModal() -> Element {
                 label { "An error occurred" }
             }
             PopupContent {
-                label { { format!("{}", show_error_popup.data().unwrap()) } }
+                label { {format!("{}", show_error_popup.data().unwrap())} }
                 Button { onpress: move |_| show_error_popup.answer(ShowError()),
                     label { "OK" }
                 }

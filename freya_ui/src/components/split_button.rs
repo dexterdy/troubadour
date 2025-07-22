@@ -22,14 +22,14 @@ pub fn SplitButton(
                 direction: "horizontal",
                 main_align: "center",
                 cross_align: "center",
-                SplitInnerLeftButton { onpress, { left_button } }
+                SplitInnerLeftButton { onpress, {left_button} }
                 Separator { orientation: Orientation::Vertical }
                 SplitInnerRightButton { menu_open }
             }
             if *menu_open.read() {
                 rect { width: "0", height: "0",
                     rect { width: "100v",
-                        Menu { onclose: move |_| menu_open.set(false), { children } }
+                        Menu { onclose: move |_| menu_open.set(false), {children} }
                     }
                 }
             }

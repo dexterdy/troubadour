@@ -40,7 +40,6 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
         if s.players.contains_key(&name) {
             let error_string =
                 format!("error: you cannot use the name '{name}', because it is already used.");
-            
         }
         let new_player = Player::new(path, name.clone()).unwrap();
         s.players.insert(name.clone(), PlayerRef::new(new_player));
@@ -294,9 +293,10 @@ pub fn Load(state: Signal<AppState>) -> Element {
     rsx! {
         SplitButton {
             onpress: move |_| load_callback(Box::new(replace_load)),
-            left_button: rsx!{ label { "load" } },
-            MenuButton {
-                onpress: move |_| load_callback(Box::new(merge_load)),
+            left_button: rsx! {
+                label { "load" }
+            },
+            MenuButton { onpress: move |_| load_callback(Box::new(merge_load)),
                 label { "merge with soundscape" }
             }
         }
