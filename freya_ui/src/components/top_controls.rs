@@ -1,9 +1,11 @@
 use crate::{
-    common_actions::{save, Unsaved},
+    common_actions::{save, ShowError, Unsaved},
     components::SplitButton,
     player_ref::PlayerRef,
     AppState,
 };
+use anyhow::Error;
+use dioxus::logger::tracing::debug;
 use freya::prelude::*;
 use rfd::AsyncFileDialog;
 use std::{collections::HashMap, path::PathBuf};
@@ -15,6 +17,7 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
     let mut show_name_dialogue = use_signal(|| false);
     let mut name = use_signal(|| "".to_string());
     let mut show_pick_file = use_signal(|| false);
+    let mut show_error_popup = use_context::<UsePopup<Error, ShowError>>();
 
     let pick_file = move |_| {
         if !*show_pick_file.read() {
@@ -37,9 +40,14 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
         let mut s = state.write();
         let name = name.read().clone();
         let path = path.read().clone().expect("path doesn't exist");
+        debug!("{:#?}", *s);
         if s.players.contains_key(&name) {
-            let error_string =
-                format!("error: you cannot use the name '{name}', because it is already used.");
+            spawn(async move {
+                let error_string =
+                    format!("error: you cannot use the name '{name}', because it is already used.");
+                show_error_popup.open(Some(Error::msg(error_string))).await;
+            });
+            return;
         }
         let new_player = Player::new(path, name.clone()).unwrap();
         s.players.insert(name.clone(), PlayerRef::new(new_player));

@@ -27,14 +27,14 @@ pub fn GlobalModals(state: Signal<AppState>, children: Element) -> Element {
             UnsavedModal { state }
         }
         if show_error_popup.is_open() {
-            UnsavedModal { state }
+            ShowErrorModal {}
         }
         {children}
     }
 }
 
 #[component]
-pub fn UnsavedModal(state: Signal<AppState>) -> Element {
+fn UnsavedModal(state: Signal<AppState>) -> Element {
     let mut unsaved_answer = use_popup_answer::<(), Unsaved>();
     let mut show_file_pick = use_signal(|| false);
 
@@ -98,8 +98,9 @@ pub async fn save(mut state: Signal<AppState>) -> Result<(), Error> {
 }
 
 #[component]
-pub fn ShowErrorModal() -> Element {
-    let mut show_error_popup = use_popup_answer::<Error, ShowError>();
+fn ShowErrorModal() -> Element {
+    let mut show_error_answer: UsePopupAnswer<Error, ShowError> =
+        use_popup_answer::<Error, ShowError>();
 
     rsx! {
         Popup { show_close_button: false, close_on_escape_key: false,
@@ -107,9 +108,13 @@ pub fn ShowErrorModal() -> Element {
                 label { "An error occurred" }
             }
             PopupContent {
-                label { {format!("{}", show_error_popup.data().unwrap())} }
-                Button { onpress: move |_| show_error_popup.answer(ShowError()),
-                    label { "OK" }
+                rect { height: "100%", main_align: "space-between",
+                    label { {format!("{}", show_error_answer.data().as_ref().unwrap())} }
+                    rect { width: "100%", cross_align: "end",
+                        Button { onpress: move |_| show_error_answer.answer(ShowError()),
+                            label { "OK" }
+                        }
+                    }
                 }
             }
         }
