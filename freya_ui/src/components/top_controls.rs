@@ -1,5 +1,5 @@
 use crate::{
-    common_actions::{save, UnsavedModalResult},
+    common_actions::{save, Unsaved},
     components::SplitButton,
     player_ref::PlayerRef,
     AppState,
@@ -20,8 +20,10 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
         if !*show_pick_file.read() {
             show_pick_file.set(true);
             spawn(async move {
-                let file = AsyncFileDialog::new().pick_file().await.unwrap();
-                path.set(Some(file.path().to_path_buf()));
+                AsyncFileDialog::new()
+                    .pick_file()
+                    .await
+                    .map(|file| path.set(Some(file.path().to_path_buf())));
                 if path.read().is_some() {
                     show_name_dialogue.set(true);
                 }
@@ -34,17 +36,13 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
         show_name_dialogue.set(false);
         let mut s = state.write();
         let name = name.read().clone();
-        let path = path.read().clone();
-        // TODO
-        // if path.is_none() {
-        //     return Err(Error::msg("error: no path selected"));
-        // }
-        // if s.players.contains_key(&name) {
-        //     return Err(Error::msg(format!(
-        //         "error: you cannot use the name '{name}', because it is already used."
-        //     )));
-        // }
-        let new_player = Player::new(path.unwrap(), name.clone()).unwrap();
+        let path = path.read().clone().expect("path doesn't exist");
+        if s.players.contains_key(&name) {
+            let error_string =
+                format!("error: you cannot use the name '{name}', because it is already used.");
+            
+        }
+        let new_player = Player::new(path, name.clone()).unwrap();
         s.players.insert(name.clone(), PlayerRef::new(new_player));
         s.top_group.insert(name.clone());
         s.saved = false;
@@ -52,7 +50,7 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
 
     rsx! {
         Button {
-            onclick: pick_file,
+            onpress: pick_file,
             theme: theme_with!(ButtonTheme { padding : "4 8".into() }),
             svg {
                 width: "20",
@@ -71,7 +69,7 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
                         value: name.read().clone(),
                         onchange: move |e| { name.set(e) },
                     }
-                    Button { onclick: done,
+                    Button { onpress: done,
                         label { "Done" }
                     }
                 }
@@ -121,7 +119,7 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
 
     rsx! {
         Button {
-            onclick: pause_or_play,
+            onpress: pause_or_play,
             theme: theme_with!(ButtonTheme { padding : "4 8".into() }),
             if state.read().global_paused {
                 svg {
@@ -154,7 +152,7 @@ pub fn Stop(state: Signal<AppState>) -> Element {
 
     rsx! {
         Button {
-            onclick: stop,
+            onpress: stop,
             theme: theme_with!(ButtonTheme { padding : "4 8".into() }),
             svg {
                 width: "20",
@@ -175,7 +173,7 @@ pub fn Save(state: Signal<AppState>) -> Element {
 
     rsx! {
         Button {
-            onclick: save,
+            onpress: save,
             theme: theme_with!(ButtonTheme { padding : "4 8".into() }),
             svg {
                 width: "20",
@@ -188,7 +186,7 @@ pub fn Save(state: Signal<AppState>) -> Element {
 
 #[component]
 pub fn Load(state: Signal<AppState>) -> Element {
-    let mut unsaved_modal = use_context::<UsePopup<(), UnsavedModalResult>>();
+    let mut unsaved_modal = use_context::<UsePopup<(), Unsaved>>();
     let mut name_conflict_popup = use_popup::<(String, String), NameResolution>();
 
     let load = async move || {
@@ -284,7 +282,7 @@ pub fn Load(state: Signal<AppState>) -> Element {
             if !state.read().saved {
                 let res = unsaved_modal.open(()).await;
                 let res = res.as_ref().unwrap();
-                if *res != UnsavedModalResult::Cancelled {
+                if *res != Unsaved::Cancelled {
                     inner()
                 }
             } else {

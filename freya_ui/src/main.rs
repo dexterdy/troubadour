@@ -8,17 +8,17 @@ use components::{
     top_controls::{AddPlayer, Load, MasterVolume, PausePlay, Save, Stop},
     Orientation, Separator,
 };
+use dioxus::logger::tracing::error;
 use freya::prelude::*;
 use indexmap::{IndexMap, IndexSet};
 use player_ref::PlayerRef;
 use std::collections::HashMap;
-
+use std::fmt::Debug;
 /*
 TODO: error handling
 TODO: handle no path chosen
 TODO: file extensions
 TODO: grouping
-TODO: icons
 TODO: theming
 TODO: layout
 TODO: dark/light mode
