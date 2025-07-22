@@ -1,6 +1,7 @@
 use anyhow::Error;
 use freya::prelude::*;
 use rfd::AsyncFileDialog;
+use troubadour_lib::SaveState;
 
 use crate::AppState;
 
@@ -82,15 +83,18 @@ pub async fn save(mut state: Signal<AppState>) -> Result<(), Error> {
     let file = AsyncFileDialog::new().save_file().await;
     if let Some(path) = file {
         let s = state.peek();
-        troubadour_lib::save(
-            s.players
+
+        let save_state = SaveState {
+            players: s
+                .players
                 .iter()
                 .map(|(n, p)| (n.clone(), p.clone()))
                 .collect(),
-            &s.top_group,
-            &s.groups,
-            path.path(),
-        )?;
+            top_group: s.top_group.clone(),
+            groups: s.groups.clone(),
+        };
+
+        troubadour_lib::save(save_state, path.path())?;
         drop(s);
         state.write().saved = true;
     }

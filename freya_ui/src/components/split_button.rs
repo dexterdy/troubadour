@@ -107,7 +107,7 @@ fn SplitInnerRightButton(menu_open: Signal<bool>) -> Element {
         ..
     } = theme.colors;
 
-    let mut focused = use_focus();
+    let focused = use_focus();
     let (onmouseenter, onmouseleave, status) = use_hover(CursorIcon::Pointer);
 
     let onkeydown = move |ev: KeyboardEvent| {

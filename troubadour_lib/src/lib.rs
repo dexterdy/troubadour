@@ -15,26 +15,28 @@ use serde::{Deserialize, Serialize};
 // TODO: fades (fade in, fade out, fade transition, fade length with default)
 
 #[derive(Serialize, Deserialize)]
-struct SerializableAppState {
+struct SerializableSaveState {
     players: HashMap<String, Serializable>,
     top_group: IndexSet<String>,
     groups: IndexMap<String, IndexSet<String>>,
 }
 
-pub fn save(
-    players: HashMap<String, impl Into<Serializable>>,
-    top_group: &IndexSet<String>,
-    groups: &IndexMap<String, IndexSet<String>>,
-    path: &Path,
-) -> Result<(), Error> {
-    let serializable: HashMap<String, Serializable> = players
+pub struct SaveState<P: Into<Serializable>> {
+    pub players: HashMap<String, P>,
+    pub top_group: IndexSet<String>,
+    pub groups: IndexMap<String, IndexSet<String>>,
+}
+
+pub fn save<P: Into<Serializable>>(save_state: SaveState<P>, path: &Path) -> Result<(), Error> {
+    let serializable: HashMap<String, Serializable> = save_state
+        .players
         .into_iter()
         .map(|(k, p)| (k.clone(), p.into()))
         .collect();
-    let ser_app_self = SerializableAppState {
+    let ser_app_self = SerializableSaveState {
         players: serializable,
-        top_group: top_group.clone(),
-        groups: groups.clone(),
+        top_group: save_state.top_group,
+        groups: save_state.groups,
     };
     let json = serde_json::to_string(&ser_app_self).map_err(|e| Error {
         msg: "error: could not serialize to json. This is a bug. Contact the developer".to_string(),
@@ -45,17 +47,8 @@ pub fn save(
     Ok(())
 }
 
-pub fn load(
-    path: &Path,
-) -> Result<
-    (
-        HashMap<String, Player>,
-        IndexSet<String>,
-        IndexMap<String, IndexSet<String>>,
-    ),
-    Error,
-> {
-    let json: SerializableAppState = serde_json::from_reader(
+pub fn load(path: &Path) -> Result<SaveState<Player>, Error> {
+    let json: SerializableSaveState = serde_json::from_reader(
         File::open(path).map_err(|e| convert_read_file_error(path, e, error::FileKind::Save))?,
     )
     .map_err(|e| Error {
@@ -65,14 +58,18 @@ pub fn load(
         source: Some(e.into()),
     })?;
 
-    let mut players = HashMap::new();
-    let mut top_group = IndexSet::new();
-    let mut groups = IndexMap::new();
+    let mut save_state = SaveState {
+        players: HashMap::new(),
+        top_group: IndexSet::new(),
+        groups: IndexMap::new(),
+    };
 
     let mut handle_new_player = |name: String, group: &mut IndexSet<String>| -> Result<(), Error> {
         let player = json.players.get(&name).unwrap();
 
-        players.insert(name.clone(), Player::from_serializable(player)?);
+        save_state
+            .players
+            .insert(name.clone(), Player::from_serializable(player)?);
 
         group.insert(name.clone());
 
@@ -80,7 +77,7 @@ pub fn load(
     };
 
     for name in json.top_group {
-        handle_new_player(name, &mut top_group)?;
+        handle_new_player(name, &mut save_state.top_group)?;
     }
 
     for (group_name, group) in json.groups {
@@ -90,8 +87,8 @@ pub fn load(
             handle_new_player(name, &mut new_group)?;
         }
 
-        groups.insert(group_name.clone(), new_group);
+        save_state.groups.insert(group_name.clone(), new_group);
     }
 
-    Ok((players, top_group, groups))
+    Ok(save_state)
 }

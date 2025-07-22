@@ -447,6 +447,12 @@ impl Into<Serializable> for &Player {
     }
 }
 
+impl Into<Serializable> for Player {
+    fn into(self) -> Serializable {
+        (&self).into()
+    }
+}
+
 #[test]
 fn player_functionality() {
     let mut player = Player::new(

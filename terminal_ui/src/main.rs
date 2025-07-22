@@ -12,7 +12,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use terminal_helpers::{get_confirmation, get_option, readline, show_selection};
 use troubadour_lib::player::Player;
-use troubadour_lib::{load, save};
+use troubadour_lib::{load, save, SaveState};
 use ui_definition::Commands;
 
 struct RespondResult {
@@ -403,12 +403,12 @@ fn respond(
             })
         }
         Commands::Save { path } => {
-            save(
-                state.players.iter().map(|(n, p)| (n.clone(), p)).collect(),
-                &state.top_group,
-                &state.groups,
-                &path,
-            )?;
+            let save_state = SaveState {
+                players: state.players.iter().map(|(n, p)| (n.clone(), p)).collect(),
+                top_group: state.top_group.clone(),
+                groups: state.groups.clone(),
+            };
+            save(save_state, &path)?;
             Ok(RespondResult {
                 saved: true,
                 mutated: false,
@@ -448,9 +448,9 @@ fn load_combine_or_overwrite(
 
         return if confirmation {
             let new = load(&path)?;
-            state.players = new.0;
-            state.top_group = new.1;
-            state.groups = new.2;
+            state.players = new.players;
+            state.top_group = new.top_group;
+            state.groups = new.groups;
             Ok(RespondResult {
                 saved: true,
                 mutated: true,
@@ -497,29 +497,29 @@ fn load_combine_or_overwrite(
 
     let (player_renames, players_to_skip) = get_changes_helper!(
         "player",
-        new.0,
+        new.players,
         state.players,
         vec![("Overwrite", "o"), ("Rename", "r"), ("Skip", "s")]
     );
 
     let (group_renames, groups_to_skip) = get_changes_helper!(
         "group",
-        new.2,
+        new.groups,
         state.groups,
         vec![("Merge", "m"), ("Rename", "r"), ("Skip", "s")]
     );
 
     for (name, new_name) in player_renames {
-        if let Some(mut player) = new.0.remove(&name) {
+        if let Some(mut player) = new.players.remove(&name) {
             player.name = new_name.clone();
-            new.0.insert(new_name.clone(), player);
+            new.players.insert(new_name.clone(), player);
         }
 
-        if let Some((index, _)) = new.1.shift_remove_full(&name) {
-            new.1.shift_insert(index, new_name.clone());
+        if let Some((index, _)) = new.top_group.shift_remove_full(&name) {
+            new.top_group.shift_insert(index, new_name.clone());
         }
 
-        for group in new.2.values_mut() {
+        for group in new.groups.values_mut() {
             let res = group.shift_remove_full(&name);
             if let Some((index, _)) = res {
                 group.shift_insert(index, new_name.clone());
@@ -528,26 +528,26 @@ fn load_combine_or_overwrite(
     }
 
     for skip in players_to_skip {
-        new.0.remove(&skip);
-        new.1.shift_remove(&skip);
-        for group in new.2.values_mut() {
+        new.players.remove(&skip);
+        new.top_group.shift_remove(&skip);
+        for group in new.groups.values_mut() {
             group.shift_remove(&skip);
         }
     }
 
     for skip in groups_to_skip {
-        new.2.shift_remove(&skip);
+        new.groups.shift_remove(&skip);
     }
 
     for (name, new_name) in group_renames {
-        if let Some((index, _, group)) = new.2.shift_remove_full(&name) {
-            new.2.shift_insert(index, new_name.clone(), group);
+        if let Some((index, _, group)) = new.groups.shift_remove_full(&name) {
+            new.groups.shift_insert(index, new_name.clone(), group);
         }
     }
 
-    state.players.extend(new.0);
-    state.top_group.extend(new.1);
-    for (name, new_group) in new.2 {
+    state.players.extend(new.players);
+    state.top_group.extend(new.top_group);
+    for (name, new_group) in new.groups {
         if let Some(group) = state.groups.get_mut(&name) {
             group.extend(new_group);
         } else {

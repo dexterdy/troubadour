@@ -50,29 +50,29 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
         state.write().saved = false;
     };
 
-    let mut cut_start_input = use_signal(|| duration_to_string(player_borrow.cut_start, false));
-    let player_clone = player.clone();
-    let cut_start = move |new_cut: String| {
-        cut_start_input.set(new_cut.clone());
-        if let Ok(cut) = duration_str::parse(new_cut) {
-            player_clone.with_mut(|p| {
-                let _ = p.cut_start(cut);
-            });
-        }
-        state.write().saved = false;
-    };
+    // let mut cut_start_input = use_signal(|| duration_to_string(player_borrow.cut_start, false));
+    // let player_clone = player.clone();
+    // let cut_start = move |new_cut: String| {
+    //     cut_start_input.set(new_cut.clone());
+    //     if let Ok(cut) = duration_str::parse(new_cut) {
+    //         player_clone.with_mut(|p| {
+    //             let _ = p.cut_start(cut);
+    //         });
+    //     }
+    //     state.write().saved = false;
+    // };
 
-    let mut cut_end_input = use_signal(|| duration_to_string(player_borrow.cut_end, false));
-    let player_clone = player.clone();
-    let cut_end = move |new_cut: String| {
-        cut_end_input.set(new_cut.clone());
-        if let Ok(cut) = duration_str::parse(new_cut) {
-            player_clone.with_mut(|p| {
-                let _ = p.cut_end(cut);
-            });
-        }
-        state.write().saved = false;
-    };
+    // let mut cut_end_input = use_signal(|| duration_to_string(player_borrow.cut_end, false));
+    // let player_clone = player.clone();
+    // let cut_end = move |new_cut: String| {
+    //     cut_end_input.set(new_cut.clone());
+    //     if let Ok(cut) = duration_str::parse(new_cut) {
+    //         player_clone.with_mut(|p| {
+    //             let _ = p.cut_end(cut);
+    //         });
+    //     }
+    //     state.write().saved = false;
+    // };
 
     let player_clone = player.clone();
     let toggle_loop = move |_| {
@@ -82,29 +82,29 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
         state.write().saved = false;
     };
 
-    let mut loop_gap_input = use_signal(|| duration_to_string(player_borrow.loop_gap, false));
-    let player_clone = player.clone();
-    let set_loop_gap = move |new_loop_gap: String| {
-        loop_gap_input.set(new_loop_gap.clone());
-        if let Ok(gap) = duration_str::parse(new_loop_gap) {
-            player_clone.with_mut(|p| {
-                let _ = p.toggle_loop(p.looping, gap);
-            });
-        }
-        state.write().saved = false;
-    };
+    // let mut loop_gap_input = use_signal(|| duration_to_string(player_borrow.loop_gap, false));
+    // let player_clone = player.clone();
+    // let set_loop_gap = move |new_loop_gap: String| {
+    //     loop_gap_input.set(new_loop_gap.clone());
+    //     if let Ok(gap) = duration_str::parse(new_loop_gap) {
+    //         player_clone.with_mut(|p| {
+    //             let _ = p.toggle_loop(p.looping, gap);
+    //         });
+    //     }
+    //     state.write().saved = false;
+    // };
 
-    let mut delay_input = use_signal(|| duration_to_string(player_borrow.delay_length, false));
-    let player_clone = player.clone();
-    let set_delay = move |new_delay: String| {
-        delay_input.set(new_delay.clone());
-        if let Ok(delay) = duration_str::parse(new_delay) {
-            player_clone.with_mut(|p| {
-                let _ = p.set_delay(delay);
-            });
-        }
-        state.write().saved = false;
-    };
+    // let mut delay_input = use_signal(|| duration_to_string(player_borrow.delay_length, false));
+    // let player_clone = player.clone();
+    // let set_delay = move |new_delay: String| {
+    //     delay_input.set(new_delay.clone());
+    //     if let Ok(delay) = duration_str::parse(new_delay) {
+    //         player_clone.with_mut(|p| {
+    //             let _ = p.set_delay(delay);
+    //         });
+    //     }
+    //     state.write().saved = false;
+    // };
 
     rsx! {
         rect {

@@ -2,18 +2,19 @@ mod common_actions;
 mod components;
 mod player_ref;
 
+use crate::components::save_load::{Load, Save};
 use common_actions::GlobalModals;
 use components::{
     player_view::PlayerView,
-    top_controls::{AddPlayer, Load, MasterVolume, PausePlay, Save, Stop},
+    top_controls::{AddPlayer, MasterVolume, PausePlay, Stop},
     Orientation, Separator,
 };
-use dioxus::logger::tracing::error;
 use freya::prelude::*;
 use indexmap::{IndexMap, IndexSet};
 use player_ref::PlayerRef;
 use std::collections::HashMap;
 use std::fmt::Debug;
+
 /*
 TODO: error handling
 TODO: handle no path chosen
