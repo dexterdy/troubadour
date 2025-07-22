@@ -296,15 +296,11 @@ pub fn Load(state: Signal<AppState>) -> Element {
     rsx! {
         SplitButton {
             onpress: move |_| load_callback(Box::new(replace_load)),
-            options: vec![
-                (
-                    EventHandler::new(move |_| load_callback(Box::new(merge_load))),
-                    rsx! {
-                        label { "merge with soundscape" }
-                    },
-                ),
-            ],
-            label { "load" }
+            left_button: rsx!{ label { "load" } },
+            MenuButton {
+                onpress: move |_| load_callback(Box::new(merge_load)),
+                label { "merge with soundscape" }
+            }
         }
 
         if name_conflict_popup.is_open() {
