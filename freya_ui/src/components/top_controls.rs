@@ -5,7 +5,6 @@ use crate::{
     AppState,
 };
 use anyhow::Error;
-use dioxus::logger::tracing::debug;
 use freya::prelude::*;
 use rfd::AsyncFileDialog;
 use std::{collections::HashMap, path::PathBuf};
@@ -40,7 +39,6 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
         let mut s = state.write();
         let name = name.read().clone();
         let path = path.read().clone().expect("path doesn't exist");
-        debug!("{:#?}", *s);
         if s.players.contains_key(&name) {
             spawn(async move {
                 let error_string =
@@ -195,16 +193,33 @@ pub fn Save(state: Signal<AppState>) -> Element {
 pub fn Load(state: Signal<AppState>) -> Element {
     let mut unsaved_modal = use_context::<UsePopup<(), Unsaved>>();
     let mut name_conflict_popup = use_popup::<(String, String), NameResolution>();
+    let mut show_error_popup = use_context::<UsePopup<Error, ShowError>>();
 
     let load = async move || {
-        let p = AsyncFileDialog::new().pick_file().await.unwrap();
-        return load(p.path());
+        let p = AsyncFileDialog::new().pick_file().await;
+        return p.map(|p| load(p.path())).transpose();
     };
 
     let replace_load = move || {
         spawn(async move {
-            let new_state = load().await.unwrap();
+            let new_state = load().await;
+
+            match new_state {
+                Ok(None) => {
+                    return;
+                }
+                Err(e) => {
+                    spawn(async move {
+                        show_error_popup.open(Some(e.into())).await;
+                    });
+                    return;
+                }
+                _ => {}
+            }
+
+            let new_state = new_state.unwrap().unwrap();
             let mut s = state.write();
+
             s.players = new_state
                 .0
                 .into_iter()
@@ -217,8 +232,23 @@ pub fn Load(state: Signal<AppState>) -> Element {
 
     let merge_load = move || {
         spawn(async move {
+            let new_state = load().await;
+
+            match new_state {
+                Ok(None) => {
+                    return;
+                }
+                Err(e) => {
+                    spawn(async move {
+                        show_error_popup.open(Some(e.into())).await;
+                    });
+                    return;
+                }
+                _ => {}
+            }
+
+            let mut new_state = new_state.unwrap().unwrap();
             let mut state = state.write();
-            let mut new_state = load().await.unwrap();
 
             for (n, mut p) in new_state.0 {
                 if state.players.contains_key(&n) {
@@ -230,6 +260,7 @@ pub fn Load(state: Signal<AppState>) -> Element {
                     {
                         NameResolution::Skip => {
                             new_state.1.shift_remove(&n);
+
                             for (_, g) in &mut new_state.2 {
                                 g.shift_remove(&n);
                             }
@@ -237,21 +268,25 @@ pub fn Load(state: Signal<AppState>) -> Element {
                         NameResolution::Replace => {
                             state.players.insert(n.clone(), PlayerRef::new(p));
                             state.top_group.shift_remove(&n);
+
                             for (_, g) in &mut state.groups {
                                 g.shift_remove(&n);
                             }
                         }
                         NameResolution::Rename(new_name) => {
                             p.name = new_name.clone();
+
                             if new_state.1.contains(&n) {
                                 // puts new_name in same position as old_name was
                                 new_state.1.insert(new_name.clone());
                                 new_state.1.swap_remove(&n);
                             }
+
                             for (_, g) in &mut new_state.2 {
                                 g.insert(new_name.clone());
                                 g.swap_remove(&n);
                             }
+
                             state.players.insert(new_name, PlayerRef::new(p));
                         }
                     }
@@ -259,6 +294,7 @@ pub fn Load(state: Signal<AppState>) -> Element {
                     state.players.insert(n, PlayerRef::new(p));
                 }
             }
+
             state.top_group.append(&mut new_state.1);
 
             for (n, g) in new_state.2 {
