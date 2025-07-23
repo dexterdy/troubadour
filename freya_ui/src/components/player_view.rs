@@ -76,6 +76,7 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
             corner_radius: "5",
             content: "fit",
         rect {
+                // TODO: make good-looking drag-handle
                 width: "fill-min",
                 cross_align: "center",
                 rect {
