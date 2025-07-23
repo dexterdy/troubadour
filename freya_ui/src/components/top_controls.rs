@@ -18,6 +18,7 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
             show_pick_file.set(true);
             spawn(async move {
                 AsyncFileDialog::new()
+                    .add_filter("sound", &["flac", "mp3", "mp4", "ogg", "wav", "aac", "pcm"])
                     .pick_file()
                     .await
                     .map(|file| path.set(Some(file.path().to_path_buf())));
