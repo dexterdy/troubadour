@@ -2,7 +2,6 @@ use crate::{common_actions::ShowError, player_ref::PlayerRef, AppState};
 use anyhow::Error;
 use freya::prelude::*;
 use rfd::AsyncFileDialog;
-use std::cell::Cell;
 use std::{collections::HashMap, path::PathBuf};
 use troubadour_lib::player::Player;
 
@@ -13,6 +12,7 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
     let mut name = use_signal(|| "".to_string());
     let mut show_pick_file = use_signal(|| false);
     let mut show_error_popup = use_context::<UsePopup<Error, ShowError>>();
+    let theme = use_get_theme();
 
     let pick_file = move |_| {
         if !*show_pick_file.read() {
@@ -57,6 +57,7 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
             svg {
                 width: "20",
                 height: "20",
+                fill: "{theme.colors.solid}",
                 svg_data: static_bytes(include_bytes!("../../icons/list-add-symbolic.svg")),
             }
         }
@@ -84,6 +85,7 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
 pub fn PausePlay(state: Signal<AppState>) -> Element {
     let mut prev_player_play_states: Signal<HashMap<String, bool>> = use_signal(|| HashMap::new());
     let mut show_error_popup = use_context::<UsePopup<Error, ShowError>>();
+    let theme = use_get_theme();
 
     let get_prev_state = move || {
         state
@@ -145,12 +147,14 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
                 svg {
                     width: "20",
                     height: "20",
+                    fill: "{theme.colors.solid}",
                     svg_data: static_bytes(include_bytes!("../../icons/media-playback-start-symbolic.svg")),
                 }
             } else {
                 svg {
                     width: "20",
                     height: "20",
+                    fill: "{theme.colors.solid}",
                     svg_data: static_bytes(include_bytes!("../../icons/media-playback-pause-symbolic.svg")),
                 }
             }
@@ -160,6 +164,8 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
 
 #[component]
 pub fn Stop(state: Signal<AppState>) -> Element {
+    let theme = use_get_theme();
+    
     let stop = move |_| {
         let state = state.write();
         for (_, p) in &state.players {
@@ -176,6 +182,7 @@ pub fn Stop(state: Signal<AppState>) -> Element {
             svg {
                 width: "20",
                 height: "20",
+                fill: "{theme.colors.solid}",
                 svg_data: static_bytes(include_bytes!("../../icons/media-playback-stop-symbolic.svg")),
             }
         }

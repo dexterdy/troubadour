@@ -11,6 +11,7 @@ use troubadour_lib::{load, player::Player, SaveState};
 
 #[component]
 pub fn Save(state: Signal<AppState>) -> Element {
+    let theme = use_get_theme();
     let mut show_error_popup = use_context::<UsePopup<Error, ShowError>>();
 
     let save = move |_| {
@@ -28,6 +29,7 @@ pub fn Save(state: Signal<AppState>) -> Element {
             svg {
                 width: "20",
                 height: "20",
+                fill:  "{theme.colors.solid}",
                 svg_data: static_bytes(include_bytes!("../../icons/save-symbolic.svg")),
             }
         }

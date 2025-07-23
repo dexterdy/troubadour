@@ -8,15 +8,12 @@ pub fn SplitButton(
     left_button: Element,
     children: Element,
 ) -> Element {
-    let theme = use_get_theme();
-    let ColorsSheet { color, .. } = theme.colors;
     let mut menu_open = use_signal(|| false);
 
     rsx! {
         rect { direction: "vertical",
             rect {
                 overflow: "clip",
-                color: "{color}",
                 corner_radius: "6",
                 text_height: "disable-least-ascent",
                 direction: "horizontal",
