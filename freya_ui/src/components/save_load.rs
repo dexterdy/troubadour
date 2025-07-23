@@ -11,9 +11,13 @@ use troubadour_lib::{load, player::Player, SaveState};
 
 #[component]
 pub fn Save(state: Signal<AppState>) -> Element {
+    let mut show_error_popup = use_context::<UsePopup<Error, ShowError>>();
+
     let save = move |_| {
         spawn(async move {
-            let _ = save(state).await;
+            if let Err(e) = save(state).await {
+                show_error_popup.open(Some(e)).await;
+            }
         });
     };
 

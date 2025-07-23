@@ -13,6 +13,7 @@ use player::{Player, Serializable};
 use serde::{Deserialize, Serialize};
 
 // TODO: fades (fade in, fade out, fade transition, fade length with default)
+// TODO: sharable/non-context save files
 
 #[derive(Serialize, Deserialize)]
 struct SerializableSaveState {

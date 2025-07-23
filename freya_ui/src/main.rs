@@ -17,7 +17,7 @@ use std::fmt::Debug;
 
 /*
 TODO: error handling
-TODO: file extensions
+TODO: file extensions (save files) 
 TODO: grouping
 TODO: theming
 TODO: layout
