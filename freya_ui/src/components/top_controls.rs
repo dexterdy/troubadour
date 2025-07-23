@@ -95,39 +95,37 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
     };
 
     let mut pause = move || {
-        state.with_mut(|s| {
-            for (_, p) in &s.players {
-                p.with_mut(|p| {
-                    if p.get_is_playing() {
-                        p.pause();
-                    }
-                });
-            }
-            s.global_paused = true;
-        })
+        let mut state = state.write();
+        for (_, p) in &state.players {
+            p.with_mut(|p| {
+                if p.get_is_playing() {
+                    p.pause();
+                }
+            });
+        }
+        state.global_paused = true;
     };
 
     let mut play = move |prev: Signal<HashMap<String, bool>>| {
-        state.with_mut(|s| {
-            for (n, p) in &s.players {
-                let error = Cell::new(None);
-                p.with_mut(|p| {
-                    if let Some(true) = prev.read().get(n) {
-                        if let Err(e) = p.play() {
-                            error.set(Some(e));
-                        }
-                    }
-                });
-                if let Some(e) = error.take() {
-                    pause();
-                    spawn(async move {
-                        show_error_popup.open(Some(e.into())).await;
-                    });
-                    break;
+        let mut state = state.write();
+        for (n, p) in &state.players {
+            let result = p.with_mut(|p| {
+                if prev.read().get(n) == Some(&true) {
+                    p.play()
+                } else {
+                    Ok(())
                 }
+            });
+
+            if let Err(e) = result {
+                pause();
+                spawn(async move {
+                    show_error_popup.open(Some(e.into())).await;
+                });
+                return;
             }
-            s.global_paused = false;
-        })
+        }
+        state.global_paused = false;
     };
 
     let pause_or_play = move |_| {
@@ -163,13 +161,12 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
 #[component]
 pub fn Stop(state: Signal<AppState>) -> Element {
     let stop = move |_| {
-        state.with_mut(|s| {
-            for (_, p) in &s.players {
-                p.with_mut(|p| {
-                    p.stop();
-                });
-            }
-        })
+        let state = state.write();
+        for (_, p) in &state.players {
+            p.with_mut(|p| {
+                p.stop();
+            });
+        }
     };
 
     rsx! {
@@ -192,15 +189,15 @@ pub fn MasterVolume(state: Signal<AppState>) -> Element {
     let set_master_volume = move |new_master_volume| {
         master_volume.set(new_master_volume);
         let new_master_volume = (new_master_volume * 0.02) as f32;
-        state.with_mut(|s| {
-            s.master_volume = new_master_volume;
-            for (_, p) in &s.players {
-                p.with_mut(|p| {
-                    let player_volume = p.volume;
-                    p.volume(player_volume, new_master_volume);
-                });
-            }
-        });
+        let mut state = state.write();
+
+        state.master_volume = new_master_volume;
+        for (_, p) in &state.players {
+            p.with_mut(|p| {
+                let player_volume = p.volume;
+                p.volume(player_volume, new_master_volume);
+            });
+        }
     };
 
     rsx! {

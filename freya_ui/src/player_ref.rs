@@ -36,8 +36,8 @@ impl PlayerRef {
         self.inner.player_signal.read()
     }
 
-    pub fn with_mut<F: Fn(&mut Player)>(&self, f: F) {
-        self.inner.player_signal.clone().with_mut(f);
+    pub fn with_mut<O, F: Fn(&mut Player) -> O>(&self, f: F) -> O {
+        self.inner.player_signal.clone().with_mut(f)
     }
 }
 
