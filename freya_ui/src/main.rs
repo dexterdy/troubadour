@@ -18,7 +18,6 @@ use std::fmt::Debug;
 /*
 TODO: file extensions (save files)
 TODO: grouping
-TODO: theming
 TODO: popup layout
 TODO: drag and drop
 TODO: player context menu (remove, add to group, cross fade, etc)
