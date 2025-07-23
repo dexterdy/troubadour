@@ -2,6 +2,7 @@ use crate::{common_actions::ShowError, player_ref::PlayerRef, AppState};
 use anyhow::Error;
 use freya::prelude::*;
 use rfd::AsyncFileDialog;
+use std::cell::Cell;
 use std::{collections::HashMap, path::PathBuf};
 use troubadour_lib::player::Player;
 
@@ -82,6 +83,8 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
 #[component]
 pub fn PausePlay(state: Signal<AppState>) -> Element {
     let mut prev_player_play_states: Signal<HashMap<String, bool>> = use_signal(|| HashMap::new());
+    let mut show_error_popup = use_context::<UsePopup<Error, ShowError>>();
+
     let get_prev_state = move || {
         state
             .read()
@@ -90,31 +93,49 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
             .map(|(name, p)| (name.clone(), p.read().get_is_playing()))
             .collect::<HashMap<String, bool>>()
     };
+
+    let mut pause = move || {
+        state.with_mut(|s| {
+            for (_, p) in &s.players {
+                p.with_mut(|p| {
+                    if p.get_is_playing() {
+                        p.pause();
+                    }
+                });
+            }
+            s.global_paused = true;
+        })
+    };
+
+    let mut play = move |prev: Signal<HashMap<String, bool>>| {
+        state.with_mut(|s| {
+            for (n, p) in &s.players {
+                let error = Cell::new(None);
+                p.with_mut(|p| {
+                    if let Some(true) = prev.read().get(n) {
+                        if let Err(e) = p.play() {
+                            error.set(Some(e));
+                        }
+                    }
+                });
+                if let Some(e) = error.take() {
+                    pause();
+                    spawn(async move {
+                        show_error_popup.open(Some(e.into())).await;
+                    });
+                    break;
+                }
+            }
+            s.global_paused = false;
+        })
+    };
+
     let pause_or_play = move |_| {
         if !state.read().global_paused {
             prev_player_play_states.set(get_prev_state());
-            state.with_mut(|s| {
-                for (_, p) in &s.players {
-                    p.with_mut(|p| {
-                        if p.get_is_playing() {
-                            p.pause();
-                        }
-                    });
-                }
-                s.global_paused = true;
-            })
+            pause()
         } else {
-            let prev = prev_player_play_states.read();
-            state.with_mut(|s| {
-                for (n, p) in &s.players {
-                    p.with_mut(|p| {
-                        if let Some(true) = prev.get(n) {
-                            let _ = p.play();
-                        }
-                    });
-                }
-                s.global_paused = false;
-            })
+            play(prev_player_play_states)
         }
     };
 
