@@ -1,7 +1,7 @@
 use crate::error::{convert_read_file_error, Error, ErrorVariant, FileKind};
 use rodio::{
     source::{Buffered, Zero},
-    Decoder, OutputStream, OutputStreamHandle, Sink, Source,
+    Decoder, OutputStream, OutputStreamBuilder, Sink, Source,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -27,7 +27,6 @@ pub struct Serializable {
 #[allow(dead_code)]
 struct Audio {
     stream: OutputStream,
-    handle: OutputStreamHandle,
     sink: Sink,
     source: Buffered<Decoder<File>>,
     length: Duration,
@@ -35,17 +34,13 @@ struct Audio {
 
 impl Audio {
     fn new(media: &PathBuf) -> Result<Self, Error> {
-        let (stream, handle) = OutputStream::try_default().map_err(|e| Error {
+        let stream = OutputStreamBuilder::open_default_stream().map_err(|e| Error {
             msg: "error: failed to set up your audio device.".to_string(),
             variant: ErrorVariant::AudioDeviceSetupFailed,
             source: Some(e.into()),
         })?;
 
-        let sink = Sink::try_new(&handle).map_err(|e| Error {
-            msg: "error: failed to set up your audio device.".to_string(),
-            variant: ErrorVariant::AudioDeviceSetupFailed,
-            source: Some(e.into()),
-        })?;
+        let sink = Sink::connect_new(stream.mixer());
 
         let file = File::open(&media)
             .map_err(|err| convert_read_file_error(&media, err, FileKind::Media))?;
@@ -69,7 +64,6 @@ impl Audio {
 
         Ok(Self {
             stream,
-            handle,
             sink,
             source,
             length,
@@ -376,7 +370,7 @@ impl Player {
             self.looping && self.loop_gap > Duration::from_secs(0),
             let decoder = {
                 let to_take = decoder.total_duration().unwrap() + self.loop_gap;
-                let silence: Zero<i16> = Zero::new(decoder.channels(), decoder.sample_rate());
+                let silence: Zero = Zero::new(decoder.channels(), decoder.sample_rate());
                 let decoder_padded = decoder.mix(silence);
                 decoder_padded.take_duration(to_take)
             },

@@ -17,7 +17,6 @@ use std::fmt::Debug;
 
 /*
 TODO: error handling
-TODO: handle no path chosen
 TODO: file extensions
 TODO: grouping
 TODO: theming
