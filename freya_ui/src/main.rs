@@ -81,35 +81,33 @@ fn app() -> Element {
     });
 
     rsx! {
-        Body{
-        GlobalModals { state,
-            rect {
-                height: "100v",
-                content: "flex",
-                rect {
-                    direction: "horizontal",
-                    width: "fill",
-                    spacing: "5",
-                    padding: "6",
-                    background: "{current_theme.read().colors.neutral_surface}",
-                    AddPlayer { state }
-                    PausePlay { state }
-                    Stop { state }
-                    Save { state }
-                    Load { state }
-                    MasterVolume { state }
-                }
-                Separator { orientation: Orientation::Horizontal }
-                ScrollView { padding: "6", height: "flex(1)",
-                    for (_ , p) in state.read().players.clone() {
-                        PlayerView { player: p, state }
+        Body {
+            GlobalModals { state,
+                rect { height: "100v", content: "flex",
+                    rect {
+                        direction: "horizontal",
+                        width: "fill",
+                        spacing: "5",
+                        padding: "6",
+                        background: "{current_theme.read().colors.neutral_surface}",
+                        AddPlayer { state }
+                        PausePlay { state }
+                        Stop { state }
+                        Save { state }
+                        Load { state }
+                        MasterVolume { state }
+                    }
+                    Separator { orientation: Orientation::Horizontal }
+                    ScrollView { padding: "6", height: "flex(1)",
+                        for (_ , p) in state.read().players.clone() {
+                            PlayerView { player: p, state }
+                        }
+                    }
+                    if let Some(player) = &state.read().selected_player {
+                        Separator { orientation: Orientation::Horizontal }
+                        EditPlayerPanel { player: player.clone(), state }
                     }
                 }
-                if let Some(player) = &state.read().selected_player {
-                    Separator { orientation: Orientation::Horizontal }
-                    EditPlayerPanel { player: player.clone(), state: state }
-                }
-            }
             }
         }
     }

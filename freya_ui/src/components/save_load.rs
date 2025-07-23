@@ -29,7 +29,7 @@ pub fn Save(state: Signal<AppState>) -> Element {
             svg {
                 width: "20",
                 height: "20",
-                fill:  "{theme.colors.solid}",
+                fill: "{theme.colors.solid}",
                 svg_data: static_bytes(include_bytes!("../../icons/save-symbolic.svg")),
             }
         }
