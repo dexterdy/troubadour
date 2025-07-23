@@ -71,23 +71,45 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
     };
 
     rsx! {
-        rect { border: "1 outer black", corner_radius: "5", content: "fit",
+        rect {
+            border: "1 outer {theme.colors.solid}",
+            corner_radius: "5",
+            content: "fit",
             rect {
                 // TODO: make good-looking drag-handle
                 width: "fill-min",
                 cross_align: "center",
                 rect {
-                    width: "20",
-                    height: "10",
-                    background: "green",
+                    width: "35",
+                    height: "15",
+                    cross_align: "center",
                     onclick: move |_| { state.write().selected_player = Some(player.clone()) },
+                    svg {
+                        position: "absolute",
+                        width: "35",
+                        height: "15",
+                        fill: "{theme.colors.secondary_surface}",
+                        svg_data: static_bytes(include_bytes!("../../icons/trapezoid.svg")),
+                    }
+                    svg {
+                        width: "15",
+                        height: "15",
+                        fill: "{theme.colors.solid}",
+                        rotate: "90deg",
+                        svg_data: static_bytes(include_bytes!("../../icons/list-drag-handle-symbolic.svg")),
+                    }
                 }
             }
-            rect { direction: "horizontal", spacing: "10", padding: "6",
-                rect {
-                    label { height: "28", font_size: "20", font_weight: "bold",
-                        "{player_borrow.name}"
-                    }
+            rect { padding: "8", spacing: "6", content: "fit",
+                label {
+                    width: "fill-min",
+                    font_size: "16",
+                    font_weight: "bold",
+                    max_lines: "1",
+                    text_overflow: "ellipsis",
+                    "{player_borrow.name}"
+                }
+                rect { direction: "horizontal", spacing: "5",
                     ToggleButton {
                         toggled: player_borrow.looping,
                         onpress: toggle_loop,
@@ -95,48 +117,36 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                         height: "20",
                         svg_data: include_bytes!("../../icons/loop-arrow-symbolic.svg"),
                     }
-                }
-                rect { content: "fit",
-                    rect {
-                        height: "28",
-                        width: "fill-min",
-                        cross_align: "center",
-                        direction: "horizontal",
-                        spacing: "5",
-                        ToggleButton {
-                            toggled: *is_playing.read(),
-                            onpress: play,
+                    ToggleButton {
+                        toggled: *is_playing.read(),
+                        onpress: play,
+                        width: "20",
+                        height: "20",
+                        svg_data: include_bytes!("../../icons/media-playback-start-symbolic.svg"),
+                    }
+                    Button {
+                        onpress: stop,
+                        theme: theme_with!(ButtonTheme { padding : "4 8".into() }),
+                        svg {
                             width: "20",
                             height: "20",
-                            svg_data: include_bytes!("../../icons/media-playback-start-symbolic.svg"),
-                        }
-                        Button {
-                            onpress: stop,
-                            theme: theme_with!(ButtonTheme { padding : "4 8".into() }),
-                            svg {
-                                width: "20",
-                                height: "20",
-                                fill: "{theme.colors.solid}",
-                                svg_data: static_bytes(include_bytes!("../../icons/media-playback-stop-symbolic.svg")),
-                            }
-                        }
-                        ToggleButton {
-                            toggled: *is_paused.read(),
-                            onpress: pause,
-                            width: "20",
-                            height: "20",
-                            svg_data: include_bytes!("../../icons/media-playback-pause-symbolic.svg"),
+                            fill: "{theme.colors.solid}",
+                            svg_data: static_bytes(include_bytes!("../../icons/media-playback-stop-symbolic.svg")),
                         }
                     }
-                    rect {
-                        height: "28",
-                        main_align: "center",
-                        width: "fill-min",
-                        label { width: "0", height: "0", a11y_hidden: true, "volume" }
-                        Slider {
-                            value: (player_borrow.volume * 50.0) as f64,
-                            onmoved: set_volume,
-                        }
+                    ToggleButton {
+                        toggled: *is_paused.read(),
+                        onpress: pause,
+                        width: "20",
+                        height: "20",
+                        svg_data: include_bytes!("../../icons/media-playback-pause-symbolic.svg"),
+                    }
+                }
+                rect { width: "fill-min",
+                    label { width: "0", height: "0", a11y_hidden: true, "volume" }
+                    Slider {
+                        value: (player_borrow.volume * 50.0) as f64,
+                        onmoved: set_volume,
                     }
                 }
             }

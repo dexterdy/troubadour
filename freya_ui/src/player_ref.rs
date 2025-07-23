@@ -43,7 +43,7 @@ impl PlayerRef {
 
 impl PartialEq for PlayerRef {
     fn eq(&self, other: &Self) -> bool {
-        self.inner.player_signal == other.inner.player_signal
+        self.inner.player_signal.peek().name == other.inner.player_signal.peek().name
     }
 }
 
