@@ -21,7 +21,6 @@ TODO: grouping
 TODO: theming
 TODO: popup layout
 TODO: drag and drop
-TODO: player edit view (cut, delay, etc)
 TODO: player context menu (remove, add to group, cross fade, etc)
 TODO: group context menu (remove, remove and remove players, combine with, cross fade, etc)
 TODO: cross fade
