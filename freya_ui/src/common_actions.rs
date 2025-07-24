@@ -60,9 +60,7 @@ fn UnsavedModal(state: Signal<AppState>) -> Element {
 
     rsx! {
         Popup { show_close_button: false, close_on_escape_key: false,
-            PopupTitle {
-                label { "You have unsaved changes. Do you want to save?" }
-            }
+            PopupTitle { text: "You have unsaved changes. Do you want to save?" }
             PopupContent {
                 label { "Unsaved changes will be lost." }
                 Button { onpress: save,
@@ -108,12 +106,10 @@ fn ShowErrorModal() -> Element {
 
     rsx! {
         Popup { show_close_button: false, close_on_escape_key: false,
-            PopupTitle {
-                label { "An error occurred" }
-            }
+            PopupTitle { text: "An error occurred" }
             PopupContent {
                 rect { height: "100%", main_align: "space-between",
-                    label { {format!("{}", show_error_answer.data().as_ref().unwrap())} }
+                    label { {format!("{}", show_error_answer.data().read())} }
                     rect { width: "100%", cross_align: "end",
                         Button { onpress: move |_| show_error_answer.answer(ShowError()),
                             label { "OK" }

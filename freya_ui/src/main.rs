@@ -98,9 +98,14 @@ fn app() -> Element {
                         MasterVolume { state }
                     }
                     Separator { orientation: Orientation::Horizontal }
-                    ScrollView { padding: "6", height: "flex(1)",
-                        for (_ , p) in state.read().players.clone() {
-                            PlayerView { player: p, state }
+                    ScrollView {
+                        padding: "6",
+                        height: "flex(1)",
+                        rect {
+                            spacing: "10",
+                            for (_ , p) in state.read().players.clone() {
+                                PlayerView { player: p, state }
+                            }
                         }
                     }
                     if let Some(player) = &state.read().selected_player {

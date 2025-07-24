@@ -70,15 +70,17 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
         state.write().saved = false;
     };
 
+    let border = if state.read().selected_player.is_some()
+        && state.read().selected_player.clone().unwrap().read().name == player.read().name
+    {
+        format! {"2 outer {}", theme.colors.highlight_color}
+    } else {
+        format! {"1 outer {}", theme.colors.solid}
+    };
+
     rsx! {
-        rect {
-            border: "1 outer {theme.colors.solid}",
-            corner_radius: "5",
-            content: "fit",
-            rect {
-                // TODO: make good-looking drag-handle
-                width: "fill-min",
-                cross_align: "center",
+        rect { border, corner_radius: "5", content: "fit",
+            rect { width: "fill-min", cross_align: "center",
                 rect {
                     width: "35",
                     height: "15",
@@ -89,6 +91,7 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                         width: "35",
                         height: "15",
                         fill: "{theme.colors.secondary_surface}",
+                        layer: "1",
                         svg_data: static_bytes(include_bytes!("../../icons/trapezoid.svg")),
                     }
                     svg {
@@ -143,7 +146,7 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                     }
                 }
                 rect { width: "fill-min",
-                    label { width: "0", height: "0", a11y_hidden: true, "volume" }
+                    label { width: "0", height: "0", a11y_hidden: "true", "volume" }
                     Slider {
                         value: (player_borrow.volume * 50.0) as f64,
                         onmoved: set_volume,
@@ -241,6 +244,9 @@ pub fn EditPlayerPanel(player: PlayerRef, state: Signal<AppState>) -> Element {
                 Input { value: loop_gap_input, onchange: set_loop_gap }
                 label { "delay" }
                 Input { value: delay_input, onchange: set_delay }
+            }
+            label { width: "200", max_lines: "1", text_overflow: "ellipsis",
+                "Looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong text"
             }
         }
     }

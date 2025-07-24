@@ -74,7 +74,11 @@ pub fn Separator(orientation: Orientation) -> Element {
     let theme = use_get_theme();
 
     rsx! {
-        rect { width, height, background: "{theme.colors.surface}" }
+        rect {
+            width,
+            height,
+            background: "{theme.colors.primary_surface}",
+        }
     }
 }
 
@@ -99,7 +103,7 @@ pub fn ToggleButton(
                 theme.button.background }, padding : "4 8".into() }
             ),
             svg {
-                fill: if toggled { theme.colors.primary.to_string() } else { theme.colors.solid.to_string() },
+                fill: if toggled { theme.colors.primary_color.to_string() } else { theme.colors.solid.to_string() },
                 width,
                 height,
                 svg_data: static_bytes(svg_data),

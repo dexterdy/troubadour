@@ -229,15 +229,11 @@ enum NameResolution {
 fn name_conflict_modal() -> Element {
     let mut name_input = use_signal(String::new);
     let mut popup_answer = use_popup_answer::<(String, String), NameResolution>();
-    let (thing, name) = popup_answer.data().clone().unwrap();
+    let (thing, name) = popup_answer.data().read().clone();
 
     rsx! {
         Popup { close_on_escape_key: false, show_close_button: false,
-            PopupTitle {
-                label {
-                    "{thing} with the name {name} already exists. How do you want to resolve the conflict?"
-                }
-            }
+            PopupTitle { text: "{thing} with the name {name} already exists. How do you want to resolve the conflict?" }
             PopupContent {
                 label { "New Name:" }
                 Input {

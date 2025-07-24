@@ -63,9 +63,7 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
         }
         if *show_name_dialogue.read() {
             Popup { oncloserequest: move |_| { show_name_dialogue.set(false) },
-                PopupTitle {
-                    label { "What should this player be called?" }
-                }
+                PopupTitle { text: "What should this player be called?" }
                 PopupContent {
                     label { "Name:" }
                     Input {

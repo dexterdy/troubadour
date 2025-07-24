@@ -38,7 +38,7 @@ pub fn SplitButton(
 fn SplitInnerLeftButton(onpress: Option<EventHandler<()>>, children: Element) -> Element {
     let theme = use_get_theme();
     let ColorsSheet {
-        surface,
+        primary_surface,
         neutral_surface,
         focused_surface,
         focused_border,
@@ -64,13 +64,13 @@ fn SplitInnerLeftButton(onpress: Option<EventHandler<()>>, children: Element) ->
     let border = if focused.is_focused_with_keyboard() {
         format!("2 inner {focused_border}")
     } else {
-        format!("1 0 1 1 inner {surface}")
+        format!("1 0 1 1 inner {primary_surface}")
     };
 
     rsx! {
         rect {
             a11y_id: focused.attribute(),
-            a11y_focusable: true,
+            a11y_focusable: "true",
             a11y_role: "button",
             background: "{background}",
             direction: "horizontal",
@@ -96,7 +96,7 @@ import_svg!(DownCaretIcon, "../../icons/down-small-symbolic.svg", { fill: "", ro
 fn SplitInnerRightButton(menu_open: Signal<bool>) -> Element {
     let theme = use_get_theme();
     let ColorsSheet {
-        surface,
+        primary_surface,
         neutral_surface,
         focused_surface,
         focused_border,
@@ -121,13 +121,13 @@ fn SplitInnerRightButton(menu_open: Signal<bool>) -> Element {
     let border = if focused.is_focused_with_keyboard() {
         format!("2 inner {focused_border}")
     } else {
-        format!("1 1 1 0 inner {surface}")
+        format!("1 1 1 0 inner {primary_surface}")
     };
 
     rsx! {
         rect {
             a11y_id: focused.attribute(),
-            a11y_focusable: true,
+            a11y_focusable: "true",
             a11y_role: "button",
             background: "{background}",
             main_align: "center",
