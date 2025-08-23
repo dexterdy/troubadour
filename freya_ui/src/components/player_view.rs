@@ -78,8 +78,20 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
         format! {"1 outer {}", theme.colors.solid}
     };
 
+    let mut hovering = use_signal(|| false);
+
     rsx! {
-        rect { border, corner_radius: "5", content: "flex",
+        rect {
+            border,
+            corner_radius: "5",
+            content: "flex",
+            onpointerenter: move |_| hovering.set(true),
+            onpointerleave: move |_| hovering.set(false),
+            onglobalpointerup: move |_| {
+                if !*hovering.peek() {
+                    state.write().selected_player = None;
+                }
+            },
             rect { width: "flex(1)", cross_align: "center",
                 rect {
                     width: "35",
@@ -104,13 +116,19 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                 }
             }
             rect { padding: "8", spacing: "6", content: "flex",
-                label {
-                    width: "flex(1)",
-                    font_size: "16",
-                    font_weight: "bold",
-                    max_lines: "1",
-                    text_overflow: "ellipsis",
-                    "{player_borrow.name}"
+                if *hovering.read() {
+                    OverflowedContent { width: "flex(1)",
+                        label { font_size: "16", font_weight: "bold", "{player_borrow.name}" }
+                    }
+                } else {
+                    label {
+                        width: "flex(1)",
+                        font_size: "16",
+                        font_weight: "bold",
+                        max_lines: "1",
+                        text_overflow: "ellipsis",
+                        "{player_borrow.name}"
+                    }
                 }
                 rect { direction: "horizontal", spacing: "5",
                     ToggleButton {
@@ -244,9 +262,6 @@ pub fn EditPlayerPanel(player: PlayerRef, state: Signal<AppState>) -> Element {
                 Input { value: loop_gap_input, onchange: set_loop_gap }
                 label { "delay" }
                 Input { value: delay_input, onchange: set_delay }
-            }
-            label { width: "200", max_lines: "1", text_overflow: "ellipsis",
-                "Looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong text"
             }
         }
     }

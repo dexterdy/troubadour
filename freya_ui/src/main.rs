@@ -101,13 +101,18 @@ fn app() -> Element {
                         MasterVolume { state }
                     }
                     Separator { orientation: Orientation::Horizontal }
-                    ScrollView {
-                        padding: "6",
-                        height: "flex(1)",
+                    ScrollView { padding: "6", height: "flex(1)",
                         rect {
+                            width: "fill",
+                            height: "fill",
+                            direction: "horizontal",
+                            wrap_content: "wrap",
                             spacing: "10",
-                            for (_ , p) in state.read().players.clone() {
-                                PlayerView { player: p, state }
+                            for p in state.read().top_group.clone() {
+                                PlayerView {
+                                    player: state.read().players.get(&p).unwrap().clone(),
+                                    state,
+                                }
                             }
                         }
                     }
