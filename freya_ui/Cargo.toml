@@ -12,7 +12,7 @@ anyhow = "1.0.76"
 dioxus = "0.6.3"
 duration-human = "0.1.10"
 duration-str = "0.17.0"
-freya = { git = "https://github.com/marc2332/freya.git", branch = "fix/ellipsize-text-on-max-lines-1", features = [
+freya = { git = "https://github.com/dexterdy/freya.git", features = [
     "devtools",
 ] }
 indexmap = "2.9.0"

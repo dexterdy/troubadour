@@ -79,8 +79,8 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
     };
 
     rsx! {
-        rect { border, corner_radius: "5", content: "fit",
-            rect { width: "fill-min", cross_align: "center",
+        rect { border, corner_radius: "5", content: "flex",
+            rect { width: "flex(1)", cross_align: "center",
                 rect {
                     width: "35",
                     height: "15",
@@ -103,9 +103,9 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                     }
                 }
             }
-            rect { padding: "8", spacing: "6", content: "fit",
+            rect { padding: "8", spacing: "6", content: "flex",
                 label {
-                    width: "fill-min",
+                    width: "flex(1)",
                     font_size: "16",
                     font_weight: "bold",
                     max_lines: "1",
@@ -145,7 +145,7 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                         svg_data: include_bytes!("../../icons/media-playback-pause-symbolic.svg"),
                     }
                 }
-                rect { width: "fill-min",
+                rect { width: "flex(1)",
                     label { width: "0", height: "0", a11y_hidden: "true", "volume" }
                     Slider {
                         value: (player_borrow.volume * 50.0) as f64,

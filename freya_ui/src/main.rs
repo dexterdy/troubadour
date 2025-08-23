@@ -55,10 +55,13 @@ impl Default for AppState {
 }
 
 fn main() {
-    let config: LaunchConfig<'_, ()> = LaunchConfig::new()
-        .with_title("Troubadour")
-        .with_min_size(615.0, 800.0);
-    launch_cfg(app, config);
+    launch_cfg(
+        LaunchConfig::new().with_window(
+            WindowConfig::new(app)
+                .with_title("Troubadour")
+                .with_min_size(615.0, 800.0),
+        ),
+    );
 }
 
 fn get_theme(preferred_theme: PreferredTheme) -> Theme {

@@ -13,14 +13,11 @@ pub fn SplitButton(
     rsx! {
         rect { direction: "vertical",
             rect {
-                overflow: "clip",
                 corner_radius: "6",
-                text_height: "disable-least-ascent",
                 direction: "horizontal",
-                main_align: "center",
-                cross_align: "center",
+                content: "flex",
                 SplitInnerLeftButton { onpress, {left_button} }
-                Separator { orientation: Orientation::Vertical }
+                Separator { orientation: Orientation::Vertical, size: "flex(1)" }
                 SplitInnerRightButton { menu_open }
             }
             if *menu_open.read() {
@@ -135,7 +132,7 @@ fn SplitInnerRightButton(menu_open: Signal<bool>) -> Element {
             padding: "0 4",
             corner_radius: "0 6 6 0",
             border,
-            height: "100%",
+            height: "flex(1)",
             onmouseenter,
             onmouseleave,
             onclick: move |_| {

@@ -65,10 +65,10 @@ pub enum Orientation {
 }
 
 #[component]
-pub fn Separator(orientation: Orientation) -> Element {
+pub fn Separator(orientation: Orientation, size: Option<String>) -> Element {
     let (width, height) = match orientation {
-        Orientation::Horizontal => ("100%", "1"),
-        Orientation::Vertical => ("1", "100%"),
+        Orientation::Horizontal => (size.unwrap_or("fill".to_string()), "1".to_string()),
+        Orientation::Vertical => ("1".to_string(), size.unwrap_or("fill".to_string())),
     };
 
     let theme = use_get_theme();
