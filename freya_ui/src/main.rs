@@ -34,6 +34,8 @@ TODO: animate volume
 TODO: file drop
 TODO: progress indicator
 TODO: file extensions (save files)
+TODO: panning
+TODO: EQ
 
 You can cross fade from a context menu, in which case a cross fade of a default shape and length happens.
 You can also create and save cross fades. You can select the shape and length of the cross fade.
