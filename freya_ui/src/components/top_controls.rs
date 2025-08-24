@@ -1,12 +1,16 @@
-use crate::{common_actions::ShowError, player_ref::PlayerRef, AppState};
+use crate::{
+    common_actions::ShowError, AppState, StateChannel, GLOBAL_PAUSED, HAS_SAVED, MASTER_VOLUME,
+};
 use anyhow::Error;
+use dioxus_radio::hooks::use_radio;
 use freya::prelude::*;
 use rfd::AsyncFileDialog;
 use std::{collections::HashMap, path::PathBuf};
 use troubadour_lib::player::Player;
 
 #[component]
-pub fn AddPlayer(state: Signal<AppState>) -> Element {
+pub fn AddPlayer() -> Element {
+    let mut state = use_radio::<AppState, StateChannel>(StateChannel::AddOrRemove);
     let mut path = use_signal::<Option<PathBuf>>(|| None);
     let mut show_name_dialogue = use_signal(|| false);
     let mut name = use_signal(|| "".to_string());
@@ -45,9 +49,9 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
             return;
         }
         let new_player = Player::new(path, name.clone()).unwrap();
-        s.players.insert(name.clone(), PlayerRef::new(new_player));
+        s.players.insert(name.clone(), new_player);
         s.top_group.insert(name.clone());
-        s.saved = false;
+        *HAS_SAVED.write() = false;
     };
 
     rsx! {
@@ -80,42 +84,45 @@ pub fn AddPlayer(state: Signal<AppState>) -> Element {
 }
 
 #[component]
-pub fn PausePlay(state: Signal<AppState>) -> Element {
+pub fn PausePlay() -> Element {
     let mut prev_player_play_states: Signal<HashMap<String, bool>> = use_signal(|| HashMap::new());
     let mut show_error_popup = use_context::<UsePopup<Error, ShowError>>();
     let theme = use_get_theme();
+    let mut state = use_radio::<AppState, StateChannel>(StateChannel::GlobalPaused);
 
     let get_prev_state = move || {
         state
             .read()
             .players
             .iter()
-            .map(|(name, p)| (name.clone(), p.read().get_is_playing()))
+            .map(|(name, p)| (name.clone(), p.get_is_playing()))
             .collect::<HashMap<String, bool>>()
     };
 
     let mut pause = move || {
-        let mut state = state.write();
-        for (_, p) in &state.players {
-            p.with_mut(|p| {
-                if p.get_is_playing() {
-                    p.pause();
-                }
-            });
+        let keys: Vec<String> = state.read().players.keys().cloned().collect();
+        for id in keys {
+            let mut player_channel_state =
+                state.write_channel(StateChannel::SpecificPlayerPaused(id.clone()));
+            let player = player_channel_state.players.get_mut(&id).unwrap();
+            if player.get_is_playing() {
+                player.pause();
+            }
         }
-        state.global_paused = true;
+        *GLOBAL_PAUSED.write() = true;
     };
 
     let mut play = move |prev: Signal<HashMap<String, bool>>| {
-        let mut state = state.write();
-        for (n, p) in &state.players {
-            let result = p.with_mut(|p| {
-                if prev.read().get(n) == Some(&true) {
-                    p.play()
-                } else {
-                    Ok(())
-                }
-            });
+        let keys: Vec<String> = state.read().players.keys().cloned().collect();
+        for id in keys {
+            let result = if prev.read().get(&id) == Some(&true) {
+                let mut player_channel_state =
+                    state.write_channel(StateChannel::SpecificPlayerPaused(id.clone()));
+                let player = player_channel_state.players.get_mut(&id).unwrap();
+                player.play()
+            } else {
+                Ok(())
+            };
 
             if let Err(e) = result {
                 pause();
@@ -125,11 +132,11 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
                 return;
             }
         }
-        state.global_paused = false;
+        *GLOBAL_PAUSED.write() = false;
     };
 
     let pause_or_play = move |_| {
-        if !state.read().global_paused {
+        if !*GLOBAL_PAUSED.read() {
             prev_player_play_states.set(get_prev_state());
             pause()
         } else {
@@ -141,7 +148,7 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
         Button {
             onpress: pause_or_play,
             theme: theme_with!(ButtonTheme { padding : "4 8".into() }),
-            if state.read().global_paused {
+            if *GLOBAL_PAUSED.read() {
                 svg {
                     width: "20",
                     height: "20",
@@ -161,16 +168,19 @@ pub fn PausePlay(state: Signal<AppState>) -> Element {
 }
 
 #[component]
-pub fn Stop(state: Signal<AppState>) -> Element {
+pub fn Stop() -> Element {
     let theme = use_get_theme();
-    
+    let mut state = use_radio::<AppState, StateChannel>(StateChannel::NoUpdate);
+
     let stop = move |_| {
-        let state = state.write();
-        for (_, p) in &state.players {
-            p.with_mut(|p| {
-                p.stop();
-            });
+        let keys: Vec<String> = state.read().players.keys().cloned().collect();
+        for id in keys {
+            let mut player_channel_state =
+                state.write_channel(StateChannel::SpecificPlayerPaused(id.clone()));
+            let player = player_channel_state.players.get_mut(&id).unwrap();
+            player.stop();
         }
+        *GLOBAL_PAUSED.write() = false;
     };
 
     rsx! {
@@ -188,20 +198,22 @@ pub fn Stop(state: Signal<AppState>) -> Element {
 }
 
 #[component]
-pub fn MasterVolume(state: Signal<AppState>) -> Element {
-    let mut master_volume = use_signal(|| 50.0);
+pub fn MasterVolume() -> Element {
+    let mut state = use_radio::<AppState, StateChannel>(StateChannel::NoUpdate);
+    let mut master_volume_slider = use_signal(|| 50.0);
 
     let set_master_volume = move |new_master_volume| {
-        master_volume.set(new_master_volume);
+        master_volume_slider.set(new_master_volume);
         let new_master_volume = (new_master_volume * 0.02) as f32;
-        let mut state = state.write();
+        *MASTER_VOLUME.write() = new_master_volume;
 
-        state.master_volume = new_master_volume;
-        for (_, p) in &state.players {
-            p.with_mut(|p| {
-                let player_volume = p.volume;
-                p.volume(player_volume, new_master_volume);
-            });
+        let keys: Vec<String> = state.read().players.keys().cloned().collect();
+        for id in keys {
+            let mut player_channel_state =
+                state.write_channel(StateChannel::SpecificPlayer(id.clone()));
+            let player = player_channel_state.players.get_mut(&id).unwrap();
+            let player_volume = player.volume;
+            player.volume(player_volume, new_master_volume);
         }
     };
 
@@ -214,7 +226,7 @@ pub fn MasterVolume(state: Signal<AppState>) -> Element {
             cross_align: "end",
             Slider {
                 size: "150",
-                value: *master_volume.read(),
+                value: *master_volume_slider.read(),
                 onmoved: set_master_volume,
             }
         }

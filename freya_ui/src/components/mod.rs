@@ -39,6 +39,7 @@ pub fn use_hover(
 pub fn use_polling<T: PartialEq + 'static, F: Fn() -> T + 'static + Clone>(
     polling_function: F,
     intial_value: T,
+    polling_interval: Duration,
 ) -> Signal<T> {
     let mut signal = use_signal(|| intial_value);
 
@@ -50,7 +51,7 @@ pub fn use_polling<T: PartialEq + 'static, F: Fn() -> T + 'static + Clone>(
                 if *signal.peek() != current {
                     signal.set(current);
                 }
-                sleep(Duration::from_millis(200)).await;
+                sleep(polling_interval).await;
             }
         }
     });

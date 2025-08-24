@@ -9,7 +9,9 @@ license = "GPL-3.0"
 
 [dependencies]
 anyhow = "1.0.76"
+dark-light = "2.0.0"
 dioxus = "0.6.3"
+dioxus-radio = "0.6.0"
 duration-human = "0.1.10"
 duration-str = "0.17.0"
 freya = { git = "https://github.com/dexterdy/freya.git", features = [
@@ -19,3 +21,4 @@ indexmap = "2.9.0"
 rfd = "0.15.3"
 tokio = "1.46.1"
 troubadour_lib = { path = "../troubadour_lib" }
+winit = "0.30.12"

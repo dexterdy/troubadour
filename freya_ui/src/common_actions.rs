@@ -1,9 +1,10 @@
 use anyhow::Error;
+use dioxus_radio::prelude::use_radio_station;
 use freya::prelude::*;
 use rfd::AsyncFileDialog;
 use troubadour_lib::SaveState;
 
-use crate::AppState;
+use crate::{AppState, StateChannel, HAS_SAVED};
 
 #[derive(PartialEq)]
 pub enum Unsaved {
@@ -16,7 +17,7 @@ pub enum Unsaved {
 pub struct ShowError();
 
 #[component]
-pub fn GlobalModals(state: Signal<AppState>, children: Element) -> Element {
+pub fn GlobalModals(children: Element) -> Element {
     let unsaved_popup = use_popup::<(), Unsaved>();
     use_context_provider(|| unsaved_popup);
 
@@ -25,7 +26,7 @@ pub fn GlobalModals(state: Signal<AppState>, children: Element) -> Element {
 
     rsx! {
         if unsaved_popup.is_open() {
-            UnsavedModal { state }
+            UnsavedModal {}
         }
         if show_error_popup.is_open() {
             ShowErrorModal {}
@@ -35,15 +36,16 @@ pub fn GlobalModals(state: Signal<AppState>, children: Element) -> Element {
 }
 
 #[component]
-fn UnsavedModal(state: Signal<AppState>) -> Element {
+fn UnsavedModal() -> Element {
     let mut unsaved_answer = use_popup_answer::<(), Unsaved>();
     let mut show_file_pick = use_signal(|| false);
+    let state = use_radio_station::<AppState, StateChannel>();
 
     let save = move |_| {
         if !*show_file_pick.read() {
             show_file_pick.set(true);
             spawn(async move {
-                let _ = save(state).await;
+                let _ = save(&*state.read()).await;
                 show_file_pick.set(false);
                 unsaved_answer.answer(Unsaved::Saved);
             });
@@ -77,24 +79,17 @@ fn UnsavedModal(state: Signal<AppState>) -> Element {
     }
 }
 
-pub async fn save(mut state: Signal<AppState>) -> Result<(), Error> {
+pub async fn save(state: &AppState) -> Result<(), Error> {
     let file = AsyncFileDialog::new().save_file().await;
     if let Some(path) = file {
-        let s = state.peek();
-
         let save_state = SaveState {
-            players: s
-                .players
-                .iter()
-                .map(|(n, p)| (n.clone(), p.clone()))
-                .collect(),
-            top_group: s.top_group.clone(),
-            groups: s.groups.clone(),
+            players: state.players.iter().map(|(n, p)| (n.clone(), p)).collect(),
+            top_group: state.top_group.clone(),
+            groups: state.groups.clone(),
         };
 
         troubadour_lib::save(save_state, path.path())?;
-        drop(s);
-        state.write().saved = true;
+        *HAS_SAVED.write() = true;
     }
     Ok(())
 }
@@ -120,3 +115,21 @@ fn ShowErrorModal() -> Element {
         }
     }
 }
+
+macro_rules! clone {
+    ($x:ident, $rest:expr) => {{
+        let $x = $x.clone();
+        $rest
+    }};
+}
+
+pub(crate) use clone;
+
+macro_rules! clone_mut {
+    ($x:ident, $rest:expr) => {{
+        let mut $x = $x.clone();
+        $rest
+    }};
+}
+
+pub(crate) use clone_mut;

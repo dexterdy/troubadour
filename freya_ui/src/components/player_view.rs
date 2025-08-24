@@ -1,78 +1,87 @@
-use crate::common_actions::ShowError;
+use crate::common_actions::{clone, ShowError};
 use crate::components::{use_polling, ToggleButton};
-use crate::{player_ref::PlayerRef, AppState};
+use crate::{AppState, PlayerId, StateChannel, HAS_SAVED, MASTER_VOLUME, SELECTED_PLAYER};
 use anyhow::Error;
+use dioxus_radio::hooks::use_radio;
 use duration_human::DurationHuman;
 use freya::prelude::*;
 use std::time::Duration;
 
 #[component]
-pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
-    let player_clone = player.clone();
-    let player_borrow = player_clone.read();
+pub fn PlayerView(player_id: PlayerId) -> Element {
+    let mut player_channel =
+        use_radio::<AppState, StateChannel>(StateChannel::SpecificPlayer(player_id.clone()));
+    let mut player_pause_channel =
+        use_radio::<AppState, StateChannel>(StateChannel::SpecificPlayerPaused(player_id.clone()));
+
     let mut show_error_popup = use_context::<UsePopup<Error, ShowError>>();
     let theme = use_get_theme();
 
-    let player_clone = player.clone();
+    macro_rules! get_player {
+        ($id:expr) => {
+            player_channel.read().players.get(&$id).unwrap()
+        };
+    }
+    macro_rules! get_player_mut {
+        ($id:expr) => {
+            player_channel.write().players.get_mut(&$id).unwrap()
+        };
+    }
+    macro_rules! get_pause_player_mut {
+        ($id:expr) => {
+            player_pause_channel.write().players.get_mut(&$id).unwrap()
+        };
+    }
+
     let is_playing = use_polling(
-        move || player_clone.read().get_is_playing(),
-        player_borrow.get_is_playing(),
+        clone!(player_id, move || {
+            get_player!(player_id).get_is_playing()
+        }),
+        get_player!(player_id).get_is_playing(),
+        Duration::from_millis(200),
     );
 
-    let player_clone = player.clone();
     let is_paused = use_polling(
-        move || player_clone.read().get_is_paused(),
-        player_borrow.get_is_paused(),
+        clone!(player_id, move || {
+            get_player!(player_id).get_is_paused()
+        }),
+        get_player!(player_id).get_is_paused(),
+        Duration::from_millis(200),
     );
 
-    let player_clone = player.clone();
-    let play = move |_| {
-        player_clone.with_mut(|p| {
-            if let Err(e) = p.play() {
-                spawn(async move {
-                    show_error_popup.open(Some(e.into())).await;
-                });
-            }
-        });
-    };
+    let play = clone!(player_id, move |_| {
+        if let Err(e) = get_pause_player_mut!(player_id).play() {
+            spawn(async move {
+                show_error_popup.open(Some(e.into())).await;
+            });
+        }
+    });
 
-    let player_clone = player.clone();
-    let pause = move |_| {
-        player_clone.with_mut(|p| {
-            p.pause();
-        });
-    };
+    let pause = clone!(player_id, move |_| {
+        get_pause_player_mut!(player_id).pause();
+    });
 
-    let player_clone = player.clone();
-    let stop = move |_| {
-        player_clone.with_mut(|p| {
-            p.stop();
-        });
-    };
+    let stop = clone!(player_id, move |_| {
+        get_pause_player_mut!(player_id).stop();
+    });
 
-    let player_clone = player.clone();
-    let set_volume = move |new_volume| {
-        player_clone.with_mut(|p| {
-            p.volume((new_volume * 0.02) as f32, state.read().master_volume);
-        });
-        state.write().saved = false;
-    };
+    let set_volume = clone!(player_id, move |new_volume| {
+        get_player_mut!(player_id).volume((new_volume * 0.02) as f32, *MASTER_VOLUME.read());
+        *HAS_SAVED.write() = false;
+    });
 
-    let player_clone = player.clone();
-    let toggle_loop = move |_| {
-        player_clone.with_mut(|p| {
-            if let Err(e) = p.toggle_loop(!p.looping, p.loop_gap) {
-                spawn(async move {
-                    show_error_popup.open(Some(e.into())).await;
-                });
-            }
-        });
-        state.write().saved = false;
-    };
+    let toggle_loop = clone!(player_id, move |_| {
+        let mut binding = player_channel.write();
+        let player = binding.players.get_mut(&player_id).unwrap();
+        if let Err(e) = player.toggle_loop(!player.looping, player.loop_gap) {
+            spawn(async move {
+                show_error_popup.open(Some(e.into())).await;
+            });
+        }
+        *HAS_SAVED.write() = false;
+    });
 
-    let border = if state.read().selected_player.is_some()
-        && state.read().selected_player.clone().unwrap().read().name == player.read().name
-    {
+    let border = if Some(player_id.clone()) == *SELECTED_PLAYER.read() {
         format! {"2 outer {}", theme.colors.highlight_color}
     } else {
         format! {"1 outer {}", theme.colors.solid}
@@ -87,17 +96,12 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
             content: "flex",
             onpointerenter: move |_| hovering.set(true),
             onpointerleave: move |_| hovering.set(false),
-            onglobalpointerup: move |_| {
-                if !*hovering.peek() {
-                    state.write().selected_player = None;
-                }
-            },
             rect { width: "flex(1)", cross_align: "center",
                 rect {
                     width: "35",
                     height: "15",
                     cross_align: "center",
-                    onclick: move |_| { state.write().selected_player = Some(player.clone()) },
+                    onclick: move |_| { *SELECTED_PLAYER.write() = Some(player_id.clone()) },
                     svg {
                         position: "absolute",
                         width: "35",
@@ -118,7 +122,7 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
             rect { padding: "8", spacing: "6", content: "flex",
                 if *hovering.read() {
                     OverflowedContent { width: "flex(1)",
-                        label { font_size: "16", font_weight: "bold", "{player_borrow.name}" }
+                        label { font_size: "16", font_weight: "bold", "{player_id.clone()}" }
                     }
                 } else {
                     label {
@@ -127,12 +131,12 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                         font_weight: "bold",
                         max_lines: "1",
                         text_overflow: "ellipsis",
-                        "{player_borrow.name}"
+                        "{player_id.clone()}"
                     }
                 }
                 rect { direction: "horizontal", spacing: "5",
                     ToggleButton {
-                        toggled: player_borrow.looping,
+                        toggled: get_player!(player_id.clone()).looping,
                         onpress: toggle_loop,
                         width: "20",
                         height: "20",
@@ -166,7 +170,7 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
                 rect { width: "flex(1)",
                     label { width: "0", height: "0", a11y_hidden: "true", "volume" }
                     Slider {
-                        value: (player_borrow.volume * 50.0) as f64,
+                        value: (get_player!(player_id.clone()).volume * 50.0) as f64,
                         onmoved: set_volume,
                     }
                 }
@@ -176,73 +180,99 @@ pub fn PlayerView(player: PlayerRef, state: Signal<AppState>) -> Element {
 }
 
 #[component]
-pub fn EditPlayerPanel(player: PlayerRef, state: Signal<AppState>) -> Element {
+pub fn EditPlayerPanel(player_id: PlayerId) -> Element {
+    let player_no_update_channel = use_radio::<AppState, StateChannel>(StateChannel::NoUpdate);
+    let mut player_channel =
+        use_radio::<AppState, StateChannel>(StateChannel::SpecificPlayer(player_id.clone()));
     let theme = use_get_theme();
     let mut show_error_popup = use_context::<UsePopup<Error, ShowError>>();
 
-    let mut cut_start_input = use_signal(|| duration_to_string(player.read().cut_start, false));
-    let player_clone = player.clone();
-    let cut_start = move |new_cut: String| {
+    macro_rules! player {
+        ($id:expr) => {
+            player_channel.read().players.get(&$id).unwrap()
+        };
+    }
+    macro_rules! player_peek {
+        ($id:expr) => {
+            player_no_update_channel.read().players.get(&$id).unwrap()
+        };
+    }
+    macro_rules! player_mut {
+        ($id:expr) => {
+            player_channel.write().players.get_mut(&$id).unwrap()
+        };
+    }
+
+    let mut cut_start_input =
+        use_signal(|| duration_to_string(player!(player_id.clone()).cut_start, false));
+    let cut_start = clone!(player_id, move |new_cut: String| {
         cut_start_input.set(new_cut.clone());
         if let Ok(cut) = duration_str::parse(new_cut) {
-            player_clone.with_mut(|p| {
-                if let Err(e) = p.cut_start(cut) {
-                    spawn(async move {
-                        show_error_popup.open(Some(e.into())).await;
-                    });
-                }
-            });
+            if let Err(e) = player_mut!(player_id).cut_start(cut) {
+                spawn(async move {
+                    show_error_popup.open(Some(e.into())).await;
+                });
+            }
         }
-        state.write().saved = false;
-    };
+        *HAS_SAVED.write() = false;
+    });
 
-    let mut cut_end_input = use_signal(|| duration_to_string(player.read().cut_end, false));
-    let player_clone = player.clone();
-    let cut_end = move |new_cut: String| {
+    let mut cut_end_input =
+        use_signal(|| duration_to_string(player!(player_id.clone()).cut_end, false));
+    let cut_end = clone!(player_id, move |new_cut: String| {
         cut_end_input.set(new_cut.clone());
         if let Ok(cut) = duration_str::parse(new_cut) {
-            player_clone.with_mut(|p| {
-                if let Err(e) = p.cut_end(cut) {
-                    spawn(async move {
-                        show_error_popup.open(Some(e.into())).await;
-                    });
-                }
-            });
+            if let Err(e) = player_mut!(player_id).cut_end(cut) {
+                spawn(async move {
+                    show_error_popup.open(Some(e.into())).await;
+                });
+            }
         }
-        state.write().saved = false;
-    };
+        *HAS_SAVED.write() = false;
+    });
 
-    let mut loop_gap_input = use_signal(|| duration_to_string(player.read().loop_gap, false));
-    let player_clone = player.clone();
-    let set_loop_gap = move |new_loop_gap: String| {
+    let mut loop_gap_input =
+        use_signal(|| duration_to_string(player!(player_id.clone()).loop_gap, false));
+    let set_loop_gap = clone!(player_id, move |new_loop_gap: String| {
         loop_gap_input.set(new_loop_gap.clone());
         if let Ok(gap) = duration_str::parse(new_loop_gap) {
-            player_clone.with_mut(|p| {
-                if let Err(e) = p.toggle_loop(p.looping, gap) {
-                    spawn(async move {
-                        show_error_popup.open(Some(e.into())).await;
-                    });
-                }
-            });
+            let mut binding = player_channel.write();
+            let player = binding.players.get_mut(&player_id).unwrap();
+            if let Err(e) = player.toggle_loop(player.looping, gap) {
+                spawn(async move {
+                    show_error_popup.open(Some(e.into())).await;
+                });
+            }
         }
-        state.write().saved = false;
-    };
+        *HAS_SAVED.write() = false;
+    });
 
-    let mut delay_input = use_signal(|| duration_to_string(player.read().delay_length, false));
-    let player_clone = player.clone();
-    let set_delay = move |new_delay: String| {
+    let mut delay_input =
+        use_signal(|| duration_to_string(player!(player_id.clone()).delay_length, false));
+    let set_delay = clone!(player_id, move |new_delay: String| {
         delay_input.set(new_delay.clone());
         if let Ok(delay) = duration_str::parse(new_delay) {
-            player_clone.with_mut(|p| {
-                if let Err(e) = p.set_delay(delay) {
-                    spawn(async move {
-                        show_error_popup.open(Some(e.into())).await;
-                    });
-                }
-            });
+            if let Err(e) = player_mut!(player_id).set_delay(delay) {
+                spawn(async move {
+                    show_error_popup.open(Some(e.into())).await;
+                });
+            }
         }
-        state.write().saved = false;
-    };
+        *HAS_SAVED.write() = false;
+    });
+
+    use_effect(use_reactive(
+        &player_id,
+        clone!(player_id, move |_| {
+            cut_start_input.set(duration_to_string(player_peek!(player_id).cut_start, false));
+            cut_end_input.set(duration_to_string(player_peek!(player_id).cut_end, false));
+            loop_gap_input.set(duration_to_string(player_peek!(player_id).loop_gap, true));
+            delay_input.set(duration_to_string(
+                player_peek!(player_id).delay_length,
+                true,
+            ));
+        }),
+    ));
 
     rsx! {
         rect {
@@ -253,15 +283,43 @@ pub fn EditPlayerPanel(player: PlayerRef, state: Signal<AppState>) -> Element {
             background: "{theme.colors.neutral_surface}",
             rect {
                 label { "cut start" }
-                Input { value: cut_start_input, onchange: cut_start }
+                Input {
+                    value: cut_start_input,
+                    onchange: cut_start,
+                    onfocuschange: clone!(
+                        player_id, move | focus : bool | { if ! focus { cut_start_input
+                        .set(duration_to_string(player!(player_id) .cut_start, false)); } }
+                    ),
+                }
                 label { "cut end" }
-                Input { value: cut_end_input, onchange: cut_end }
+                Input {
+                    value: cut_end_input,
+                    onchange: cut_end,
+                    onfocuschange: clone!(
+                        player_id, move | focus : bool | { if ! focus { cut_end_input
+                        .set(duration_to_string(player!(player_id) .cut_end, false)); } }
+                    ),
+                }
             }
             rect {
                 label { "loop gap" }
-                Input { value: loop_gap_input, onchange: set_loop_gap }
+                Input {
+                    value: loop_gap_input,
+                    onchange: set_loop_gap,
+                    onfocuschange: clone!(
+                        player_id, move | focus : bool | { if ! focus { loop_gap_input
+                        .set(duration_to_string(player!(player_id) .loop_gap, false)); } }
+                    ),
+                }
                 label { "delay" }
-                Input { value: delay_input, onchange: set_delay }
+                Input {
+                    value: delay_input,
+                    onchange: set_delay,
+                    onfocuschange: clone!(
+                        player_id, move | focus : bool | { if ! focus { delay_input
+                        .set(duration_to_string(player!(player_id) .delay_length, false)); } }
+                    ),
+                }
             }
         }
     }
