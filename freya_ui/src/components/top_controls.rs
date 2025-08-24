@@ -67,15 +67,28 @@ pub fn AddPlayer() -> Element {
         }
         if *show_name_dialogue.read() {
             Popup { oncloserequest: move |_| { show_name_dialogue.set(false) },
-                PopupTitle { text: "What should this player be called?" }
-                PopupContent {
-                    label { "Name:" }
-                    Input {
-                        value: name.read().clone(),
-                        onchange: move |e| { name.set(e) },
+                rect { padding: "20",
+                    label {
+                        font_size: "18",
+                        font_weight: "bold",
+                        margin: "0 0 15 0",
+                        "What should this player be called?"
                     }
-                    Button { onpress: done,
-                        label { "Done" }
+                    label { margin: "0 0 5 0", "Name:" }
+                    rect { margin: "0 0 10 0",
+                        Input {
+                            width: "fill",
+                            value: name.read().clone(),
+                            onchange: move |e| { name.set(e) },
+                        }
+                    }
+                    rect {
+                        width: "fill",
+                        main_align: "end",
+                        direction: "horizontal",
+                        Button { onpress: done,
+                            label { "Done" }
+                        }
                     }
                 }
             }

@@ -19,20 +19,21 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::time::Duration;
 use troubadour_lib::player::Player;
+
 /*
-TODO: file extensions (save files)
-TODO: grouping
 TODO: popup layout
-TODO: drag and drop
 TODO: player context menu (remove, add to group, cross fade, etc)
+TODO: exit unsaved changes
+TODO: loader when loading save
+
+TODO: drag and drop
+TODO: grouping
 TODO: group context menu (remove, remove and remove players, combine with, cross fade, etc)
 TODO: cross fade
 TODO: animate volume
 TODO: file drop
 TODO: progress indicator
-TODO: fix dark/light theme?
-TODO: exit unsaved changes
-TODO: loader when loading save
+TODO: file extensions (save files)
 
 You can cross fade from a context menu, in which case a cross fade of a default shape and length happens.
 You can also create and save cross fades. You can select the shape and length of the cross fade.
@@ -114,7 +115,7 @@ fn app() -> Element {
     let preferred_theme = use_polling(
         || dark_light::detect().unwrap_or(dark_light::Mode::Unspecified),
         dark_light::detect().unwrap_or(dark_light::Mode::Unspecified),
-        Duration::from_millis(1000)
+        Duration::from_millis(1000),
     );
     let mut current_theme = use_init_theme(|| get_theme(*preferred_theme.peek()));
     let platform = use_platform();

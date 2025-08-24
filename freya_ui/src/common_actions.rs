@@ -40,6 +40,7 @@ fn UnsavedModal() -> Element {
     let mut unsaved_answer = use_popup_answer::<(), Unsaved>();
     let mut show_file_pick = use_signal(|| false);
     let state = use_radio_station::<AppState, StateChannel>();
+    let theme = use_get_theme();
 
     let save = move |_| {
         if !*show_file_pick.read() {
@@ -62,17 +63,32 @@ fn UnsavedModal() -> Element {
 
     rsx! {
         Popup { show_close_button: false, close_on_escape_key: false,
-            PopupTitle { text: "You have unsaved changes. Do you want to save?" }
-            PopupContent {
-                label { "Unsaved changes will be lost." }
-                Button { onpress: save,
-                    label { "Save" }
+            rect { padding: "20",
+                label {
+                    font_size: "18",
+                    font_weight: "bold",
+                    margin: "0 0 15 0",
+                    "You have unsaved changes. Do you want to save?"
                 }
-                Button { onpress: not_save,
-                    label { "Don't Save" }
-                }
-                Button { onpress: cancel,
-                    label { "Cancel" }
+                rect {
+                    width: "fill",
+                    direction: "horizontal",
+                    main_align: "space-between",
+                    Button { onpress: cancel,
+                        label { "Cancel" }
+                    }
+                    Button { onpress: not_save,
+                        label { "Don't save" }
+                    }
+                    Button {
+                        theme: theme_with!(
+                            ButtonTheme { background : theme.colors.primary_accent, hover_background : theme
+                            .colors.tertiary_accent }
+                        ),
+                        onpress: save,
+                        label { "Save" }
+                    }
+                
                 }
             }
         }
@@ -124,12 +140,3 @@ macro_rules! clone {
 }
 
 pub(crate) use clone;
-
-macro_rules! clone_mut {
-    ($x:ident, $rest:expr) => {{
-        let mut $x = $x.clone();
-        $rest
-    }};
-}
-
-pub(crate) use clone_mut;
