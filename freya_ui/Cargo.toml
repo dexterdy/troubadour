@@ -14,7 +14,7 @@ dioxus = "0.6.3"
 dioxus-radio = "0.6.0"
 duration-human = "0.1.10"
 duration-str = "0.17.0"
-freya = { git = "https://github.com/dexterdy/freya.git", features = [
+freya = { git = "https://github.com/dexterdy/freya.git", branch = "personal-patch", features = [
     "devtools",
 ] }
 indexmap = "2.9.0"

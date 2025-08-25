@@ -43,6 +43,9 @@ pub fn Load() -> Element {
 
     let replace_load = move || {
         spawn(async move {
+            if !*HAS_SAVED.read() {
+                
+            }
             if let Some(new_state) = load_file_and_handle_errors(show_error_popup).await {
                 replace_load(&mut *state.write(), new_state);
             }

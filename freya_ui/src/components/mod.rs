@@ -5,8 +5,6 @@ pub mod top_controls;
 
 pub use crate::components::split_button::SplitButton;
 use freya::prelude::*;
-use std::time::Duration;
-use tokio::time::sleep;
 
 pub fn use_hover(
     cursor: CursorIcon,
@@ -34,29 +32,6 @@ pub fn use_hover(
     });
 
     (Box::new(onmouseenter), Box::new(onmouseleave), status)
-}
-
-pub fn use_polling<T: PartialEq + 'static, F: Fn() -> T + 'static + Clone>(
-    polling_function: F,
-    intial_value: T,
-    polling_interval: Duration,
-) -> Signal<T> {
-    let mut signal = use_signal(|| intial_value);
-
-    use_future(move || {
-        let value = polling_function.clone();
-        async move {
-            loop {
-                let current = value();
-                if *signal.peek() != current {
-                    signal.set(current);
-                }
-                sleep(polling_interval).await;
-            }
-        }
-    });
-
-    signal
 }
 
 #[derive(Clone, PartialEq)]

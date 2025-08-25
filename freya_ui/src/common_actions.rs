@@ -1,12 +1,13 @@
+use crate::{AppState, StateChannel, HAS_SAVED};
 use anyhow::Error;
 use dioxus_radio::prelude::use_radio_station;
 use freya::prelude::*;
 use rfd::AsyncFileDialog;
+use std::time::Duration;
+use tokio::time::sleep;
 use troubadour_lib::SaveState;
 
-use crate::{AppState, StateChannel, HAS_SAVED};
-
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum Unsaved {
     Saved,
     NotSaved,
@@ -142,3 +143,26 @@ macro_rules! clone {
 }
 
 pub(crate) use clone;
+
+pub fn use_polling<T: PartialEq + 'static, F: Fn() -> T + 'static + Clone>(
+    polling_function: F,
+    intial_value: T,
+    polling_interval: Duration,
+) -> Signal<T> {
+    let mut signal = use_signal(|| intial_value);
+
+    use_future(move || {
+        let value = polling_function.clone();
+        async move {
+            loop {
+                let current = value();
+                if *signal.peek() != current {
+                    signal.set(current);
+                }
+                sleep(polling_interval).await;
+            }
+        }
+    });
+
+    signal
+}

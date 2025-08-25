@@ -1,9 +1,10 @@
 mod common_actions;
 mod components;
 
+use crate::common_actions::Unsaved;
 use crate::components::player_view::EditPlayerPanel;
 use crate::components::save_load::{Load, Save};
-use crate::components::use_polling;
+use common_actions::use_polling;
 use common_actions::GlobalModals;
 use components::{
     player_view::PlayerView,
@@ -17,12 +18,13 @@ use freya::prelude::*;
 use indexmap::{IndexMap, IndexSet};
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::LazyLock;
 use std::time::Duration;
+use tokio::sync::Notify;
 use troubadour_lib::player::Player;
-
 /*
 TODO: player context menu (remove, add to group, cross fade, etc)
-TODO: exit unsaved changes
 TODO: loader when loading save
 
 TODO: drag and drop
@@ -48,6 +50,8 @@ static MASTER_VOLUME: GlobalSignal<f32> = Signal::global(|| 1.0);
 static GLOBAL_PAUSED: GlobalSignal<bool> = Signal::global(|| false);
 static HAS_SAVED: GlobalSignal<bool> = Signal::global(|| true);
 static SELECTED_PLAYER: GlobalSignal<Option<PlayerId>> = Signal::global(|| None);
+static CLOSING_NOTIFY: LazyLock<Notify> = LazyLock::new(|| Notify::new());
+static CLOSING_APPROVED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug)]
 struct AppState {
@@ -91,7 +95,18 @@ impl Default for AppState {
 }
 
 fn main() {
-    launch_cfg(LaunchConfig::new().with_window(WindowConfig::new(app).with_title("Troubadour")));
+    launch_cfg(
+        LaunchConfig::new().with_window(WindowConfig::new(app).with_title("Troubadour").on_close(
+            |_| {
+                if !CLOSING_APPROVED.load(Ordering::Relaxed) {
+                    CLOSING_NOTIFY.notify_one();
+                    OnCloseResponse::NotClose
+                } else {
+                    OnCloseResponse::Close
+                }
+            },
+        )),
+    );
 }
 
 fn get_theme(preferred_theme: dark_light::Mode) -> Theme {
@@ -113,6 +128,7 @@ fn get_winit_theme(preferred_theme: dark_light::Mode) -> winit::window::Theme {
 fn app() -> Element {
     use_init_radio_station::<AppState, StateChannel>(AppState::default);
     let state = use_radio::<AppState, StateChannel>(StateChannel::AddOrRemove);
+
     let preferred_theme = use_polling(
         || dark_light::detect().unwrap_or(dark_light::Mode::Unspecified),
         dark_light::detect().unwrap_or(dark_light::Mode::Unspecified),
@@ -137,6 +153,7 @@ fn app() -> Element {
     rsx! {
         Body {
             GlobalModals {
+                CloseHandler {}
                 rect { height: "100v", content: "flex",
                     rect {
                         direction: "horizontal",
@@ -171,4 +188,31 @@ fn app() -> Element {
             }
         }
     }
+}
+
+#[component]
+fn CloseHandler() -> Element {
+    let mut unsaved_modal = use_context::<UsePopup<(), Unsaved>>();
+    let platform = use_platform();
+
+    use_future(move || async move {
+        loop {
+            CLOSING_NOTIFY.notified().await;
+            if !*HAS_SAVED.read() {
+                let result = unsaved_modal.open(()).await;
+                match result.as_ref().unwrap() {
+                    Unsaved::Saved | Unsaved::NotSaved => {
+                        CLOSING_APPROVED.store(true, Ordering::Relaxed);
+                        platform.close_window();
+                    }
+                    Unsaved::Cancelled => { /*do nothing*/ }
+                }
+            } else {
+                CLOSING_APPROVED.store(true, Ordering::Relaxed);
+                platform.close_window();
+            }
+        }
+    });
+
+    rsx! {}
 }
