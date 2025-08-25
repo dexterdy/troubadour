@@ -21,7 +21,6 @@ use std::time::Duration;
 use troubadour_lib::player::Player;
 
 /*
-TODO: popup layout (in progress)
 TODO: player context menu (remove, add to group, cross fade, etc)
 TODO: exit unsaved changes
 TODO: loader when loading save
@@ -160,7 +159,7 @@ fn app() -> Element {
                             wrap_content: "wrap",
                             spacing: "10",
                             for player_id in state.read().top_group.clone() {
-                                PlayerView { player_id: player_id }
+                                PlayerView { player_id }
                             }
                         }
                     }

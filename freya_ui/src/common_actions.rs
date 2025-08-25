@@ -88,7 +88,6 @@ fn UnsavedModal() -> Element {
                         onpress: save,
                         label { "Save" }
                     }
-                
                 }
             }
         }
@@ -117,14 +116,17 @@ fn ShowErrorModal() -> Element {
 
     rsx! {
         Popup { show_close_button: false, close_on_escape_key: false,
-            PopupTitle { text: "An error occurred" }
-            PopupContent {
-                rect { height: "100%", main_align: "space-between",
-                    label { {format!("{}", show_error_answer.data().read())} }
-                    rect { width: "100%", cross_align: "end",
-                        Button { onpress: move |_| show_error_answer.answer(ShowError()),
-                            label { "OK" }
-                        }
+            rect { padding: "20",
+                label {
+                    font_size: "18",
+                    font_weight: "bold",
+                    margin: "0 0 15 0",
+                    "An error occurred"
+                }
+                label { margin: "0 0 10 0", {format!("{}", show_error_answer.data().read())} }
+                rect { width: "100%", cross_align: "end",
+                    Button { onpress: move |_| show_error_answer.answer(ShowError()),
+                        label { "OK" }
                     }
                 }
             }
