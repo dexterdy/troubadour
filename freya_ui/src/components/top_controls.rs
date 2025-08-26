@@ -66,7 +66,7 @@ pub fn AddPlayer() -> Element {
             }
         }
         if *show_name_dialogue.read() {
-            Popup { oncloserequest: move |_| { show_name_dialogue.set(false) },
+            Popup { show_close_button: false, close_on_escape_key: false,
                 rect { padding: "20",
                     label {
                         font_size: "18",

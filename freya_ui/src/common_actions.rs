@@ -41,7 +41,6 @@ fn UnsavedModal() -> Element {
     let mut unsaved_answer = use_popup_answer::<(), Unsaved>();
     let mut show_file_pick = use_signal(|| false);
     let state = use_radio_station::<AppState, StateChannel>();
-    let theme = use_get_theme();
 
     let save = move |_| {
         if !*show_file_pick.read() {
@@ -81,12 +80,7 @@ fn UnsavedModal() -> Element {
                     Button { onpress: not_save,
                         label { "Don't save" }
                     }
-                    Button {
-                        theme: theme_with!(
-                            ButtonTheme { background : theme.colors.primary_accent, hover_background : theme
-                            .colors.tertiary_accent }
-                        ),
-                        onpress: save,
+                    FilledButton { onpress: save,
                         label { "Save" }
                     }
                 }
@@ -100,8 +94,8 @@ pub async fn save(state: &AppState) -> Result<(), Error> {
     if let Some(path) = file {
         let save_state = SaveState {
             players: state.players.iter().map(|(n, p)| (n.clone(), p)).collect(),
-            top_group: state.top_group.clone(),
-            groups: state.groups.clone(),
+            top_group: state.top_group.clone().into(),
+            groups: state.groups.clone().into(),
         };
 
         troubadour_lib::save(save_state, path.path())?;

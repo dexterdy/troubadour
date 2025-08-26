@@ -1,15 +1,19 @@
-use std::mem;
-use crate::{common_actions::{save, ShowError, Unsaved}, components::SplitButton, AppState, StateChannel, GLOBAL_PAUSED, HAS_SAVED, MASTER_VOLUME, SELECTED_PLAYER};
+use crate::{
+    common_actions::{save, ShowError, Unsaved},
+    components::SplitButton,
+    AppState, StateChannel, GLOBAL_PAUSED, HAS_SAVED, MASTER_VOLUME, SELECTED_PLAYER,
+};
 use anyhow::Error;
 use dioxus_radio::hooks::{use_radio, use_radio_station};
 use freya::prelude::*;
 use rfd::AsyncFileDialog;
+use std::mem;
 use troubadour_lib::{load, player::Player, SaveState};
 
 #[component]
 pub fn Save() -> Element {
     let theme = use_get_theme();
-    let state =use_radio_station::<AppState, StateChannel>();
+    let state = use_radio_station::<AppState, StateChannel>();
     let mut show_error_popup = use_context::<UsePopup<Error, ShowError>>();
 
     let save = move |_| {
@@ -40,23 +44,25 @@ pub fn Load() -> Element {
     let name_conflict_popup = use_popup::<(String, String), NameResolution>();
     let show_error_popup = use_context::<UsePopup<Error, ShowError>>();
     let mut state = use_radio::<AppState, StateChannel>(StateChannel::AddOrRemove);
+    let mut loading = use_signal(|| false);
 
     let replace_load = move || {
+        loading.set(true);
         spawn(async move {
-            if !*HAS_SAVED.read() {
-                
-            }
             if let Some(new_state) = load_file_and_handle_errors(show_error_popup).await {
                 replace_load(&mut *state.write(), new_state);
             }
+            loading.set(false);
         });
     };
 
     let merge_load = move || {
+        loading.set(true);
         spawn(async move {
             if let Some(new_state) = load_file_and_handle_errors(show_error_popup).await {
                 merge_load(&mut *state.write(), new_state, name_conflict_popup).await;
             }
+            loading.set(false);
         });
     };
 
@@ -69,6 +75,10 @@ pub fn Load() -> Element {
             MenuButton { onpress: move |_| handle_unsaved_changes(unsaved_modal, Box::new(merge_load)),
                 label { "merge with soundscape" }
             }
+        }
+
+        if *loading.read() && !name_conflict_popup.is_open() {
+            PopupBackground { onclick: |_| {}, Loader {} }
         }
 
         if name_conflict_popup.is_open() {
@@ -100,15 +110,11 @@ async fn load_file_and_handle_errors(
 
 /// Replaces current state with saved state
 fn replace_load(state: &mut AppState, new_state: SaveState<Player>) {
-    state.players = new_state
-        .players
-        .into_iter()
-        .map(|(n, p)| (n, p))
-        .collect();
-    state.top_group = new_state.top_group;
-    state.groups = new_state.groups;
-    
-    *HAS_SAVED.write() = false;
+    state.players = new_state.players.into_iter().map(|(n, p)| (n, p)).collect();
+    state.top_group = new_state.top_group.into();
+    state.groups = new_state.groups.into();
+
+    *HAS_SAVED.write() = true;
     *MASTER_VOLUME.write() = 1.0;
     *GLOBAL_PAUSED.write() = false;
     *SELECTED_PLAYER.write() = None;
@@ -189,15 +195,13 @@ async fn merge_load(
             state.groups.insert(n, g);
         }
     }
-    
+
     *HAS_SAVED.write() = false;
 }
 
 /// Checks for unsaved changes before executing a given action.
-fn handle_unsaved_changes<F>(
-    mut unsaved_modal: UsePopup<(), Unsaved>,
-    mut inner: F,
-) where
+fn handle_unsaved_changes<F>(mut unsaved_modal: UsePopup<(), Unsaved>, mut inner: F)
+where
     F: FnMut() + 'static,
 {
     spawn(async move {
