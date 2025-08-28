@@ -157,9 +157,9 @@ checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
 name = "alsa"
-version = "0.9.1"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed7572b7ba83a31e20d1b48970ee402d2e3e0537dcfe0a3ff4d6eb7508617d43"
+checksum = "bdc00893e7a970727e9304671b2c88577b4cfe53dc64019fdfdf9683573a09c4"
 dependencies = [
  "alsa-sys",
  "bitflags 2.9.3",
@@ -355,9 +355,9 @@ dependencies = [
 
 [[package]]
 name = "async-executor"
-version = "1.13.2"
+version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb812ffb58524bdd10860d7d974e2f01cc0950c2438a74ee5ec2e2280c6c4ffa"
+checksum = "497c00e0fd83a72a79a39fcbd8e3e2f055d6f6c7e025f3b3d91f4f8e76527fb8"
 dependencies = [
  "async-task",
  "concurrent-queue",
@@ -839,9 +839,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.45"
+version = "4.5.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1fc0e74a703892159f5ae7d3aac52c8e6c392f5ae5f359c70b5881d60aaac318"
+checksum = "2c5e4fcf9c21d2e544ca1ee9d8552de13019a42aa7dbf32747fa7aaf1df76e57"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -849,9 +849,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.44"
+version = "4.5.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3e7f4214277f3c7aa526a59dd3fbe306a370daee1f8b7b8c987069cd8e888a8"
+checksum = "fecb53a0e6fcfb055f686001bc2e2592fa527efaf38dbe81a6a9563562e57d41"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1896,7 +1896,7 @@ dependencies = [
 [[package]]
 name = "freya"
 version = "0.4.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "dioxus",
  "dioxus-core",
@@ -1917,7 +1917,7 @@ dependencies = [
 [[package]]
 name = "freya-components"
 version = "0.4.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "dioxus",
  "freya-core",
@@ -1936,7 +1936,7 @@ dependencies = [
 [[package]]
 name = "freya-core"
 version = "0.4.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -1967,7 +1967,7 @@ dependencies = [
 [[package]]
 name = "freya-devtools"
 version = "0.4.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "bytes",
  "freya-core",
@@ -1991,7 +1991,7 @@ dependencies = [
 [[package]]
 name = "freya-elements"
 version = "0.4.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "dioxus-core",
  "dioxus-rsx",
@@ -2003,7 +2003,7 @@ dependencies = [
 [[package]]
 name = "freya-engine"
 version = "0.4.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "bitflags 2.9.3",
  "glutin",
@@ -2013,7 +2013,7 @@ dependencies = [
 [[package]]
 name = "freya-hooks"
 version = "0.4.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "bitflags 2.9.3",
  "bytes",
@@ -2036,7 +2036,7 @@ dependencies = [
 [[package]]
 name = "freya-native-core"
 version = "0.4.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "dioxus-core",
  "parking_lot",
@@ -2050,7 +2050,7 @@ dependencies = [
 [[package]]
 name = "freya-native-core-macro"
 version = "0.4.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "quote",
  "syn 2.0.106",
@@ -2059,7 +2059,7 @@ dependencies = [
 [[package]]
 name = "freya-router"
 version = "0.4.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "dioxus-lib",
  "freya-elements",
@@ -2074,7 +2074,7 @@ dependencies = [
 [[package]]
 name = "freya-router-macro"
 version = "0.4.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "base16",
  "digest",
@@ -2088,7 +2088,7 @@ dependencies = [
 [[package]]
 name = "freya-winit"
 version = "0.4.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -3723,7 +3723,7 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 [[package]]
 name = "ragnarok"
 version = "0.1.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "euclid",
  "itertools",
@@ -4799,7 +4799,7 @@ checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
 [[package]]
 name = "torin"
 version = "0.4.0"
-source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#27dd2a539813b6241ecb4c6e981a2fe8cd533cf1"
+source = "git+https://github.com/dexterdy/freya.git?branch=personal-patch#011b7c900c83a2aeb11ade5a42524ebebc7f1768"
 dependencies = [
  "euclid",
  "rustc-hash 2.1.1",

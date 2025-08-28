@@ -13,44 +13,28 @@ pub fn PlayerView(player_id: PlayerId) -> Element {
         use_radio::<AppState, StateChannel>(StateChannel::SpecificPlayer(player_id.clone()));
     let mut player_pause_channel =
         use_radio::<AppState, StateChannel>(StateChannel::SpecificPlayerPaused(player_id.clone()));
-
+    
     let mut show_error_popup = use_context::<UsePopup<Error, ShowError>>();
     let theme = use_get_theme();
 
-    macro_rules! get_player {
+    macro_rules! player {
         ($id:expr) => {
             player_channel.read().players.get(&$id).unwrap()
         };
     }
-    macro_rules! get_player_mut {
+    macro_rules! player_mut {
         ($id:expr) => {
             player_channel.write().players.get_mut(&$id).unwrap()
         };
     }
-    macro_rules! get_pause_player_mut {
+    macro_rules! pause_player_mut {
         ($id:expr) => {
             player_pause_channel.write().players.get_mut(&$id).unwrap()
         };
     }
 
-    let is_playing = use_polling(
-        clone!(player_id, move || {
-            get_player!(player_id).get_is_playing()
-        }),
-        get_player!(player_id).get_is_playing(),
-        Duration::from_millis(200),
-    );
-
-    let is_paused = use_polling(
-        clone!(player_id, move || {
-            get_player!(player_id).get_is_paused()
-        }),
-        get_player!(player_id).get_is_paused(),
-        Duration::from_millis(200),
-    );
-
     let play = clone!(player_id, move |_| {
-        if let Err(e) = get_pause_player_mut!(player_id).play() {
+        if let Err(e) = pause_player_mut!(player_id).play() {
             spawn(async move {
                 show_error_popup.open(Some(e.into())).await;
             });
@@ -58,15 +42,15 @@ pub fn PlayerView(player_id: PlayerId) -> Element {
     });
 
     let pause = clone!(player_id, move |_| {
-        get_pause_player_mut!(player_id).pause();
+        pause_player_mut!(player_id).pause();
     });
 
     let stop = clone!(player_id, move |_| {
-        get_pause_player_mut!(player_id).stop();
+        pause_player_mut!(player_id).stop();
     });
 
     let set_volume = clone!(player_id, move |new_volume| {
-        get_player_mut!(player_id).volume((new_volume * 0.02) as f32, *MASTER_VOLUME.read());
+        player_mut!(player_id).volume((new_volume * 0.02) as f32, *MASTER_VOLUME.read());
         *HAS_SAVED.write() = false;
     });
 
@@ -78,6 +62,25 @@ pub fn PlayerView(player_id: PlayerId) -> Element {
                 show_error_popup.open(Some(e.into())).await;
             });
         }
+        *HAS_SAVED.write() = false;
+    });
+    let remove_player = clone!(player_id, move |_| {
+        let mut state = player_channel.write_channel(StateChannel::AddOrRemove);
+        state.top_group.shift_remove(&player_id);
+        let group_id = state.players.get(&player_id).unwrap().group.clone();
+        if let Some(group_id) = group_id {
+            state
+                .groups
+                .get_mut(&group_id)
+                .unwrap()
+                .shift_remove(&player_id);
+        }
+        if let Some(id) = SELECTED_PLAYER.peek().clone() {
+            if player_id == id {
+                *SELECTED_PLAYER.write() = None;
+            }
+        }
+        state.players.remove(&player_id);
         *HAS_SAVED.write() = false;
     });
 
@@ -96,7 +99,9 @@ pub fn PlayerView(player_id: PlayerId) -> Element {
             content: "flex",
             onpointerenter: move |_| hovering.set(true),
             onpointerleave: move |_| hovering.set(false),
-            rect { width: "flex(1)", cross_align: "center",
+            rect {
+                width: "flex(1)",
+                cross_align: "center",
                 rect {
                     width: "35",
                     height: "15",
@@ -106,17 +111,25 @@ pub fn PlayerView(player_id: PlayerId) -> Element {
                         position: "absolute",
                         width: "35",
                         height: "15",
-                        fill: "{theme.colors.secondary_surface}",
+                        fill: theme.colors.secondary_surface.to_string(),
                         layer: "1",
                         svg_data: static_bytes(include_bytes!("../../icons/trapezoid.svg")),
                     }
                     svg {
                         width: "15",
                         height: "15",
-                        fill: "{theme.colors.solid}",
+                        fill: theme.colors.solid.to_string(),
                         rotate: "90deg",
                         svg_data: static_bytes(include_bytes!("../../icons/list-drag-handle-symbolic.svg")),
                     }
+                }
+                rect {
+                    position: "absolute",
+                    position_top: "0",
+                    position_right: "0",
+                    padding: "3",
+                    onclick: remove_player,
+                    CrossIcon { fill: theme.colors.solid.to_string() }
                 }
             }
             rect { padding: "8", spacing: "6", content: "flex",
@@ -136,14 +149,14 @@ pub fn PlayerView(player_id: PlayerId) -> Element {
                 }
                 rect { direction: "horizontal", spacing: "5",
                     ToggleButton {
-                        toggled: get_player!(player_id.clone()).looping,
+                        toggled: player!(player_id.clone()).looping,
                         onpress: toggle_loop,
                         width: "20",
                         height: "20",
                         svg_data: include_bytes!("../../icons/loop-arrow-symbolic.svg"),
                     }
                     ToggleButton {
-                        toggled: *is_playing.read(),
+                        toggled: player!(player_id.clone()).get_is_playing(),
                         onpress: play,
                         width: "20",
                         height: "20",
@@ -160,7 +173,7 @@ pub fn PlayerView(player_id: PlayerId) -> Element {
                         }
                     }
                     ToggleButton {
-                        toggled: *is_paused.read(),
+                        toggled: player!(player_id.clone()).get_is_paused(),
                         onpress: pause,
                         width: "20",
                         height: "20",
@@ -170,7 +183,7 @@ pub fn PlayerView(player_id: PlayerId) -> Element {
                 rect { width: "flex(1)",
                     label { width: "0", height: "0", a11y_hidden: "true", "volume" }
                     Slider {
-                        value: (get_player!(player_id.clone()).volume * 50.0) as f64,
+                        value: (player!(player_id.clone()).volume * 50.0) as f64,
                         onmoved: set_volume,
                     }
                 }

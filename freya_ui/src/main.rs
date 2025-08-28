@@ -23,24 +23,19 @@ use std::sync::LazyLock;
 use std::time::Duration;
 use tokio::sync::Notify;
 use troubadour_lib::player::Player;
-/*
-TODO: player context menu (remove, add to group, cross fade, etc)
-TODO: loader when loading save
 
+/*
 TODO: drag and drop
 TODO: grouping
-TODO: group context menu (remove, remove and remove players, combine with, cross fade, etc)
-TODO: cross fade
-TODO: animate volume
 TODO: file drop
 TODO: progress indicator
 TODO: file extensions (save files)
+
+TODO: Effect panel
+TODO: cross fade
+TODO: animate volume
 TODO: panning
 TODO: EQ
-
-You can cross fade from a context menu, in which case a cross fade of a default shape and length happens.
-You can also create and save cross fades. You can select the shape and length of the cross fade.
-This cross fade is then displayed as a button underneath the player/group
 */
 
 type PlayerId = String;
@@ -176,7 +171,7 @@ fn app() -> Element {
                             wrap_content: "wrap",
                             spacing: "10",
                             for player_id in state.read().top_group.clone() {
-                                PlayerView { player_id }
+                                PlayerView { key: player_id, player_id }
                             }
                         }
                     }
