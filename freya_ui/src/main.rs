@@ -36,6 +36,9 @@ TODO: cross fade
 TODO: animate volume
 TODO: panning
 TODO: EQ
+TODO: ctrl+z
+TODO: keyboard shortcuts
+FIXME: icons in buttons shift up in small window
 */
 
 type PlayerId = String;
@@ -171,7 +174,10 @@ fn app() -> Element {
                             wrap_content: "wrap",
                             spacing: "10",
                             for player_id in state.read().top_group.clone() {
-                                PlayerView { key: player_id, player_id }
+                                PlayerView {
+                                    key: player_id,
+                                    player_id: player_id.clone(),
+                                }
                             }
                         }
                     }

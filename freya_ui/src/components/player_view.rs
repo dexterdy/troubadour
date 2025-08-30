@@ -1,5 +1,5 @@
-use crate::common_actions::{clone, use_polling, ShowError};
-use crate::components::ToggleButton;
+use crate::common_actions::{clone, ShowError};
+use crate::components::{HoverCursor, ToggleButton};
 use crate::{AppState, PlayerId, StateChannel, HAS_SAVED, MASTER_VOLUME, SELECTED_PLAYER};
 use anyhow::Error;
 use dioxus_radio::hooks::use_radio;
@@ -13,7 +13,7 @@ pub fn PlayerView(player_id: PlayerId) -> Element {
         use_radio::<AppState, StateChannel>(StateChannel::SpecificPlayer(player_id.clone()));
     let mut player_pause_channel =
         use_radio::<AppState, StateChannel>(StateChannel::SpecificPlayerPaused(player_id.clone()));
-    
+
     let mut show_error_popup = use_context::<UsePopup<Error, ShowError>>();
     let theme = use_get_theme();
 
@@ -99,25 +99,26 @@ pub fn PlayerView(player_id: PlayerId) -> Element {
             content: "flex",
             onpointerenter: move |_| hovering.set(true),
             onpointerleave: move |_| hovering.set(false),
+
             rect {
                 width: "flex(1)",
                 cross_align: "center",
-                rect {
-                    width: "35",
-                    height: "15",
-                    cross_align: "center",
-                    onclick: move |_| { *SELECTED_PLAYER.write() = Some(player_id.clone()) },
+                height: "16",
+                onclick: clone!(
+                    player_id, move | _ | { * SELECTED_PLAYER.write() = Some(player_id.clone()); }
+                ),
+                svg {
+                    position: "absolute",
+                    width: "100%",
+                    height: "100%",
+                    fill: theme.colors.secondary_surface.to_string(),
+                    layer: "1",
+                    svg_data: static_bytes(include_bytes!("../../icons/trapezoid.svg")),
+                }
+                HoverCursor { cursor_icon: CursorIcon::Pointer,
                     svg {
-                        position: "absolute",
-                        width: "35",
-                        height: "15",
-                        fill: theme.colors.secondary_surface.to_string(),
-                        layer: "1",
-                        svg_data: static_bytes(include_bytes!("../../icons/trapezoid.svg")),
-                    }
-                    svg {
-                        width: "15",
-                        height: "15",
+                        width: "16",
+                        height: "100%",
                         fill: theme.colors.solid.to_string(),
                         rotate: "90deg",
                         svg_data: static_bytes(include_bytes!("../../icons/list-drag-handle-symbolic.svg")),
@@ -125,13 +126,21 @@ pub fn PlayerView(player_id: PlayerId) -> Element {
                 }
                 rect {
                     position: "absolute",
-                    position_top: "0",
                     position_right: "0",
-                    padding: "3",
+                    height: "100%",
                     onclick: remove_player,
-                    CrossIcon { fill: theme.colors.solid.to_string() }
+                    HoverCursor { cursor_icon: CursorIcon::Pointer,
+                        svg {
+                            width: "16",
+                            height: "100%",
+                            fill: theme.colors.solid.to_string(),
+                            svg_data: static_bytes(include_bytes!("../../icons/cross-small-symbolic.svg")),
+                        }
+                    }
                 }
             }
+
+
             rect { padding: "8", spacing: "6", content: "flex",
                 if *hovering.read() {
                     OverflowedContent { width: "flex(1)",
@@ -288,50 +297,68 @@ pub fn EditPlayerPanel(player_id: PlayerId) -> Element {
     ));
 
     rsx! {
-        rect {
-            direction: "horizontal",
-            spacing: "10",
-            width: "fill",
-            padding: "9",
-            background: "{theme.colors.neutral_surface}",
+        rect { background: "{theme.colors.neutral_surface}",
             rect {
-                label { "cut start" }
-                Input {
-                    value: cut_start_input,
-                    onchange: cut_start,
-                    onfocuschange: clone!(
-                        player_id, move | focus : bool | { if ! focus { cut_start_input
-                        .set(duration_to_string(player!(player_id) .cut_start, false)); } }
-                    ),
-                }
-                label { "cut end" }
-                Input {
-                    value: cut_end_input,
-                    onchange: cut_end,
-                    onfocuschange: clone!(
-                        player_id, move | focus : bool | { if ! focus { cut_end_input
-                        .set(duration_to_string(player!(player_id) .cut_end, false)); } }
-                    ),
+                width: "100%",
+                direction: "horizontal",
+                main_align: "space-between",
+                border: "0 0 1 0 inner {theme.colors.primary_surface}",
+                padding: "9",
+                label { font_weight: "bold", {player_id.clone()} }
+                HoverCursor { cursor_icon: CursorIcon::Pointer,
+                    svg {
+                        onclick: move |_| { *SELECTED_PLAYER.write() = None },
+                        width: "16",
+                        height: "16",
+                        fill: theme.colors.solid.to_string(),
+                        svg_data: static_bytes(include_bytes!("../../icons/minus-large-symbolic.svg")),
+                    }
                 }
             }
             rect {
-                label { "loop gap" }
-                Input {
-                    value: loop_gap_input,
-                    onchange: set_loop_gap,
-                    onfocuschange: clone!(
-                        player_id, move | focus : bool | { if ! focus { loop_gap_input
-                        .set(duration_to_string(player!(player_id) .loop_gap, false)); } }
-                    ),
+                direction: "horizontal",
+                spacing: "10",
+                width: "fill",
+                padding: "9",
+                rect {
+                    label { "cut start" }
+                    Input {
+                        value: cut_start_input,
+                        onchange: cut_start,
+                        onfocuschange: clone!(
+                            player_id, move | focus : bool | { if ! focus { cut_start_input
+                            .set(duration_to_string(player!(player_id) .cut_start, false)); } }
+                        ),
+                    }
+                    label { "cut end" }
+                    Input {
+                        value: cut_end_input,
+                        onchange: cut_end,
+                        onfocuschange: clone!(
+                            player_id, move | focus : bool | { if ! focus { cut_end_input
+                            .set(duration_to_string(player!(player_id) .cut_end, false)); } }
+                        ),
+                    }
                 }
-                label { "delay" }
-                Input {
-                    value: delay_input,
-                    onchange: set_delay,
-                    onfocuschange: clone!(
-                        player_id, move | focus : bool | { if ! focus { delay_input
-                        .set(duration_to_string(player!(player_id) .delay_length, false)); } }
-                    ),
+                rect {
+                    label { "loop gap" }
+                    Input {
+                        value: loop_gap_input,
+                        onchange: set_loop_gap,
+                        onfocuschange: clone!(
+                            player_id, move | focus : bool | { if ! focus { loop_gap_input
+                            .set(duration_to_string(player!(player_id) .loop_gap, false)); } }
+                        ),
+                    }
+                    label { "delay" }
+                    Input {
+                        value: delay_input,
+                        onchange: set_delay,
+                        onfocuschange: clone!(
+                            player_id, move | focus : bool | { if ! focus { delay_input
+                            .set(duration_to_string(player!(player_id) .delay_length, false)); } }
+                        ),
+                    }
                 }
             }
         }

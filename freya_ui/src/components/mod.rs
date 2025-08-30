@@ -34,6 +34,26 @@ pub fn use_hover(
     (Box::new(onmouseenter), Box::new(onmouseleave), status)
 }
 
+#[component]
+pub fn HoverCursor(
+    cursor_icon: CursorIcon,
+    children: Element,
+    width: Option<&'static str>,
+    height: Option<&'static str>,
+) -> Element {
+    let (onmouseenter, onmouseleave, _) = use_hover(cursor_icon);
+
+    rsx! {
+        rect {
+            onmouseenter,
+            onmouseleave,
+            width,
+            height,
+            {children}
+        }
+    }
+}
+
 #[derive(Clone, PartialEq)]
 pub enum Orientation {
     Horizontal,
@@ -53,7 +73,7 @@ pub fn Separator(orientation: Orientation, size: Option<String>) -> Element {
         rect {
             width,
             height,
-            background: "{theme.colors.primary_surface}",
+            background: theme.colors.primary_surface.to_string(),
         }
     }
 }
