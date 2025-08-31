@@ -8,6 +8,7 @@ use dioxus_radio::hooks::{use_radio, use_radio_station};
 use freya::prelude::*;
 use rfd::AsyncFileDialog;
 use std::mem;
+use tokio::task::spawn_blocking;
 use troubadour_lib::{load, player::Player, SaveState};
 
 #[component]
@@ -91,11 +92,10 @@ pub fn Load() -> Element {
 async fn load_file_and_handle_errors(
     mut show_error_popup: UsePopup<Error, ShowError>,
 ) -> Option<SaveState<Player>> {
-    let load_result = async {
+    let load_result = {
         let file = AsyncFileDialog::new().pick_file().await;
-        file.map(|f| load(f.path())).transpose()
-    }
-    .await;
+        spawn_blocking(|| file.map(|f| load(f.path())).transpose()).await.unwrap()
+    };
 
     match load_result {
         Ok(Some(data)) => Some(data),
